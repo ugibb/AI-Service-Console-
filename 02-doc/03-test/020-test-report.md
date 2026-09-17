@@ -1,4 +1,4 @@
-# 测试报告：AI Service Console（本地服务统一管理控制台）
+# 测试报告：AI Service Console（AI 服务控制台）
 
 - **测试阶段**：Stage 3 独立验收（M1 = Windows MVP）
 - **执行人**：@OWR_qa

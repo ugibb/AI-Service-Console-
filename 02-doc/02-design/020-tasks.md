@@ -1,4 +1,4 @@
-# Task List：本地服务统一管理控制台
+# Task List：AI Service Console（AI 服务控制台）
 
 - 关联 PRD：`02-doc/02-design/010-prd.md`（v3.0）
 - 日期：2026-09-17
