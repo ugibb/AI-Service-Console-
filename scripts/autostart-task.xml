@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-16"?>
+<!--
+  任务计划程序定义模板（T1.19）。
+  占位符由 install-autostart.bat 用真实路径替换后写出 UTF-16 临时文件，再交给 schtasks /create /xml。
+
+  两个关键设置，改之前先想清楚：
+  - <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>：0 = 不限时。schtasks 默认 72 小时会把长跑的控制台杀掉。
+  - <RestartOnFailure>：控制台崩溃后 1 分钟重试，最多 3 次（PRD §10「失败自动重启」）。
+    schtasks 命令行参数无法表达这一项，只能走 XML。
+-->
+<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Description>AI Service Console —— 登录后自动拉起本机服务控制台（崩溃后自动重启）。日志见 logs\console.log。</Description>
+    <URI>\AI Service Console</URI>
+  </RegistrationInfo>
+  <Triggers>
+    <LogonTrigger>
+      <Enabled>true</Enabled>
+      <UserId>__USER__</UserId>
+      <Delay>PT20S</Delay>
+    </LogonTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <UserId>__USER__</UserId>
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>LeastPrivilege</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+    <IdleSettings>
+      <StopOnIdleEnd>false</StopOnIdleEnd>
+      <RestartOnIdle>false</RestartOnIdle>
+    </IdleSettings>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>false</Hidden>
+    <RunOnlyIfIdle>false</RunOnlyIfIdle>
+    <WakeToRun>false</WakeToRun>
+    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
+    <Priority>7</Priority>
+    <RestartOnFailure>
+      <Interval>PT1M</Interval>
+      <Count>3</Count>
+    </RestartOnFailure>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>cmd.exe</Command>
+      <Arguments>/c "__RUNNER__"</Arguments>
+      <WorkingDirectory>__PROJECT_DIR__</WorkingDirectory>
+    </Exec>
+  </Actions>
+</Task>
