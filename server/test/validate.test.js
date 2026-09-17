@@ -73,6 +73,29 @@ test('validateServiceInput：非对象请求体被拒', () => {
   }
 });
 
+test('validateServiceInput：startupGraceMs 可省略 → null（沿用全局默认）', () => {
+  for (const value of [undefined, null, '']) {
+    const result = validateServiceInput({ ...valid, startupGraceMs: value });
+    assert.equal(result.ok, true);
+    assert.equal(result.value.startupGraceMs, null);
+  }
+});
+
+test('validateServiceInput：startupGraceMs 支持字符串数字与非负整数（含 0 = 关闭宽限期）', () => {
+  assert.equal(validateServiceInput({ ...valid, startupGraceMs: 60000 }).value.startupGraceMs, 60000);
+  assert.equal(validateServiceInput({ ...valid, startupGraceMs: '60000' }).value.startupGraceMs, 60000);
+  assert.equal(validateServiceInput({ ...valid, startupGraceMs: 0 }).value.startupGraceMs, 0);
+});
+
+test('validateServiceInput：startupGraceMs 负数 / 小数 / 非数字 / 超上限被拒（防止把秒当毫秒误填）', () => {
+  for (const value of [-1, 1.5, 'abc', 30 * 60 * 1000 + 1]) {
+    const result = validateServiceInput({ ...valid, startupGraceMs: value });
+    assert.equal(result.ok, false, `startupGraceMs=${value} 应被拒绝`);
+    assert.equal(result.errors[0].field, 'startupGraceMs');
+    assert.match(result.errors[0].message, /启动宽限期/);
+  }
+});
+
 test('assertValidServiceInput：校验失败抛 AppError（状态码 400 + 明细）', () => {
   assert.throws(
     () => assertValidServiceInput({ ...valid, name: '' }),

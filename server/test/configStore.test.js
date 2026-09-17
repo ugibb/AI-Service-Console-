@@ -177,6 +177,38 @@ test('加载归一化：缺字段补齐、id 缺失或重复自动补发、非�
   assert.match(warnings.join(), /无效记录/);
 });
 
+test('加载归一化：startupGraceMs 保留合法值、非法值置空（沿用全局默认）', async () => {
+  const payload = JSON.stringify({
+    version: 1,
+    services: [
+      { id: 'a', name: 'A', startupGraceMs: 60000 },
+      { id: 'b', name: 'B', startupGraceMs: 0 },
+      { id: 'c', name: 'C', startupGraceMs: -1 },
+      { id: 'd', name: 'D', startupGraceMs: '60000' },
+      { id: 'e', name: 'E' },
+    ],
+  });
+  const { store } = await makeStore({ payload });
+  const byId = Object.fromEntries(store.list().map((s) => [s.id, s]));
+
+  assert.equal(byId.a.startupGraceMs, 60000);
+  assert.equal(byId.b.startupGraceMs, 0);
+  assert.equal(byId.c.startupGraceMs, null, '负数置空');
+  assert.equal(byId.d.startupGraceMs, null, '字符串不做类型推断，置空更安全');
+  assert.equal(byId.e.startupGraceMs, null, '缺字段 → null（用全局默认）');
+});
+
+test('create / update：startupGraceMs 落盘并可读回', async () => {
+  const { store, filePath } = await makeStore();
+  const created = await store.create(input({ startupGraceMs: 120000 }));
+  assert.equal(created.startupGraceMs, 120000);
+  assert.equal((await readJson(filePath)).services[0].startupGraceMs, 120000);
+
+  const updated = await store.update(created.id, input({ startupGraceMs: null }));
+  assert.equal(updated.startupGraceMs, null);
+  assert.equal((await readJson(filePath)).services[0].startupGraceMs, null);
+});
+
 test('warnings：初始加载告警可在初始化后读取', async () => {
   const { store, warnings } = await makeStore({ payload: 'not json at all' });
   assert.equal(store.warnings().length, warnings.length);

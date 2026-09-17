@@ -13,6 +13,7 @@ const service = (over = {}) => ({
   status: 'stopped',
   pid: null,
   exitCode: null,
+  startedAt: null,
   statusMessage: null,
   ...over,
 });
@@ -118,6 +119,61 @@ describe('ServiceCard', () => {
     expect(screen.getByText('启动失败')).toBeTruthy();
     expect(screen.getByText(/启动后立即退出/)).toBeTruthy();
     expect(screen.getByText(/cannot find module/)).toBeTruthy();
+  });
+
+  it('启动中：显示「启动中」并带「已启动 Ns」，与「运行中」在观感上可区分（本轮核心用户价值）', () => {
+    render(
+      <ServiceCard
+        service={service({
+          status: 'starting',
+          pid: 777,
+          startedAt: new Date(Date.now() - 12_000).toISOString(),
+          statusMessage: '启动中：进程已拉起，等待服务就绪（宽限期 60s）',
+        })}
+        onStart={noop}
+        onStop={noop}
+        onRestart={noop}
+        onEdit={noop}
+        onDelete={noop}
+        onOpenLogs={noop}
+      />,
+    );
+    expect(screen.getByText('启动中')).toBeTruthy();
+    expect(screen.queryByText('运行中')).toBeNull();
+    expect(screen.getByText(/已启动 \d+s/)).toBeTruthy();
+    expect(screen.getByText(/宽限期 60s/)).toBeTruthy();
+  });
+
+  it('运行中：不再显示已用时长（跑起来之后计时就没意义了，别留噪声）', () => {
+    render(
+      <ServiceCard
+        service={service({ status: 'running', pid: 777, startedAt: new Date(Date.now() - 12_000).toISOString() })}
+        onStart={noop}
+        onStop={noop}
+        onRestart={noop}
+        onEdit={noop}
+        onDelete={noop}
+        onOpenLogs={noop}
+      />,
+    );
+    expect(screen.getByText('运行中')).toBeTruthy();
+    expect(screen.queryByText(/已启动/)).toBeNull();
+  });
+
+  it('启动中但 startedAt 缺失：只显示状态，不显示 NaN 计时（防御后端字段缺失）', () => {
+    render(
+      <ServiceCard
+        service={service({ status: 'starting', startedAt: null })}
+        onStart={noop}
+        onStop={noop}
+        onRestart={noop}
+        onEdit={noop}
+        onDelete={noop}
+        onOpenLogs={noop}
+      />,
+    );
+    expect(screen.getByText('启动中')).toBeTruthy();
+    expect(screen.queryByText(/已启动/)).toBeNull();
   });
 
   it('回调：启动 / 停止 / 重启 / 编辑 / 删除 / 看日志都带上服务 id', async () => {

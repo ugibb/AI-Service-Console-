@@ -289,6 +289,58 @@ test('POST start / stop / restart：返回动作结果与最新服务状态', as
   }
 });
 
+test('startupGraceMs：新增写入、列表/详情回读一致，非法值 400（AI 服务的启动宽限期）', async () => {
+  const api = await makeApi();
+  try {
+    const created = await call(api.base, '/api/services', {
+      method: 'POST',
+      body: sampleService(api.workDir, api.scriptPath, api.logFile, { startupGraceMs: 60000 }),
+    });
+    assert.equal(created.status, 201);
+    assert.equal(created.body.data.startupGraceMs, 60000);
+
+    const list = await call(api.base, '/api/services');
+    assert.equal(list.body.data.services[0].startupGraceMs, 60000);
+
+    const noGrace = await call(api.base, '/api/services', {
+      method: 'POST',
+      body: sampleService(api.workDir, api.scriptPath, api.logFile, { name: '默认宽限期', startupGraceMs: null }),
+    });
+    assert.equal(noGrace.body.data.startupGraceMs, null, '未配置 → null（沿用全局默认）');
+
+    const bad = await call(api.base, '/api/services', {
+      method: 'POST',
+      body: sampleService(api.workDir, api.scriptPath, api.logFile, { name: '非法宽限期', startupGraceMs: -5 }),
+    });
+    assert.equal(bad.status, 400);
+    assert.equal(bad.body.error.code, 'VALIDATION_FAILED');
+  } finally {
+    await api.close();
+  }
+});
+
+test('AI 服务宽限期：start 先返回 starting，宽限期结束后才 running（API 层可见）', async () => {
+  const api = await makeApi();
+  try {
+    const created = await call(api.base, '/api/services', {
+      method: 'POST',
+      body: sampleService(api.workDir, api.scriptPath, api.logFile, { startupGraceMs: 250 }),
+    });
+    const id = created.body.data.id;
+
+    const started = await call(api.base, `/api/services/${id}/start`, { method: 'POST' });
+    assert.equal(started.body.data.service.status, 'starting', '宽限期内不能让用户以为服务已经能用');
+    assert.equal(started.body.data.service.pid, 4000);
+    assert.ok(started.body.data.service.startedAt, 'starting 阶段要带 startedAt，前端据此显示已启动时长');
+
+    await new Promise((resolve) => setTimeout(resolve, 340));
+    const list = await call(api.base, '/api/services');
+    assert.equal(list.body.data.services[0].status, 'running');
+  } finally {
+    await api.close();
+  }
+});
+
 test('运行中的服务禁止编辑与删除（否则会丢 PID、留下无法管理的孤儿进程）', async () => {
   const api = await makeApi();
   try {

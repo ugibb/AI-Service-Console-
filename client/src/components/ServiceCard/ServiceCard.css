@@ -6,8 +6,7 @@
   border: 1px solid var(--color-line);
   border-left: 3px solid var(--color-line-strong);
   border-radius: var(--radius-md);
-  background:
-    linear-gradient(180deg, color-mix(in oklch, var(--color-surface-2) 92%, white 8%), var(--color-surface-1));
+  background: linear-gradient(180deg, color-mix(in oklch, var(--color-surface-2) 92%, white 8%), var(--color-surface-1));
   box-shadow: var(--shadow-card);
   transition:
     transform var(--duration-fast) var(--ease-out-expo),
@@ -46,6 +45,22 @@
   font-weight: 650;
   letter-spacing: -0.01em;
   color: var(--color-text-strong);
+}
+
+.service-card__status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+/* 等宽数字，秒数跳动时不会推着徽标左右晃 */
+.service-card__elapsed {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-soft);
 }
 
 .service-card__meta {

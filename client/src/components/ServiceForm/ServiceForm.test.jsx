@@ -17,10 +17,11 @@ const validInput = {
   启动脚本: 'C:\\services\\order\\start.bat',
   日志文件: 'C:\\services\\order\\app.log',
   端口: '8081',
+  启动宽限期: '',
 };
 
 describe('ServiceForm', () => {
-  it('新增模式：标题为「新增服务」，五个字段都在', () => {
+  it('新增模式：标题为「新增服务」，六个字段都在', () => {
     render(<ServiceForm onSubmit={() => {}} onCancel={() => {}} />);
     expect(screen.getByRole('heading', { name: '新增服务' })).toBeTruthy();
     for (const label of Object.keys(validInput)) {
@@ -28,12 +29,18 @@ describe('ServiceForm', () => {
     }
   });
 
-  it('提交合法值：回调收到 trim 后的字段，端口转数字', async () => {
+  it('启动宽限期字段带「AI 服务建议设大」的说明文案（这是本轮最容易填错的字段）', () => {
+    render(<ServiceForm onSubmit={() => {}} onCancel={() => {}} />);
+    expect(screen.getByText(/AI 服务/)).toBeTruthy();
+    expect(screen.getByText(/60000/)).toBeTruthy();
+  });
+
+  it('提交合法值：回调收到 trim 后的字段，端口与宽限期转数字', async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
     render(<ServiceForm onSubmit={onSubmit} onCancel={() => {}} />);
 
-    await fill(user, { ...validInput, 名称: '  订单服务  ' });
+    await fill(user, { ...validInput, 名称: '  订单服务  ', 启动宽限期: '60000' });
     await user.click(screen.getByRole('button', { name: '保存' }));
 
     expect(onSubmit).toHaveBeenCalledWith({
@@ -42,7 +49,39 @@ describe('ServiceForm', () => {
       startScript: 'C:\\services\\order\\start.bat',
       logFile: 'C:\\services\\order\\app.log',
       port: 8081,
+      startupGraceMs: 60000,
     });
+  });
+
+  it('启动宽限期留空 → null（沿用服务端全局默认，而不是 0）', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(<ServiceForm onSubmit={onSubmit} onCancel={() => {}} />);
+    await fill(user, validInput);
+    await user.click(screen.getByRole('button', { name: '保存' }));
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ startupGraceMs: null }));
+  });
+
+  it('启动宽限期 0 是合法值（显式关闭宽限期），不被当成空值', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(<ServiceForm onSubmit={onSubmit} onCancel={() => {}} />);
+    await fill(user, { ...validInput, 启动宽限期: '0' });
+    await user.click(screen.getByRole('button', { name: '保存' }));
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ startupGraceMs: 0 }));
+  });
+
+  it('启动宽限期负数 / 小数 / 非数字 / 超上限被拦截（防止把秒当毫秒误填）', async () => {
+    for (const bad of ['-1', '1.5', 'abc', String(30 * 60 * 1000 + 1)]) {
+      const user = userEvent.setup();
+      const onSubmit = vi.fn();
+      const { unmount } = render(<ServiceForm onSubmit={onSubmit} onCancel={() => {}} />);
+      await fill(user, { ...validInput, 启动宽限期: bad });
+      await user.click(screen.getByRole('button', { name: '保存' }));
+      expect(onSubmit, `启动宽限期=${bad} 应被拦截`).not.toHaveBeenCalled();
+      expect(screen.getByText(/注意单位是毫秒/)).toBeTruthy();
+      unmount();
+    }
   });
 
   it('端口留空 → port 为 null（仅记录展示，非必填）', async () => {
@@ -92,7 +131,14 @@ describe('ServiceForm', () => {
   it('编辑模式：用 initialValue 预填，标题为「编辑服务」', () => {
     render(
       <ServiceForm
-        initialValue={{ name: '推理服务', workDir: 'C:\\ai', startScript: 'C:\\ai\\run.bat', logFile: 'C:\\ai\\out.log', port: 9000 }}
+        initialValue={{
+          name: '推理服务',
+          workDir: 'C:\\ai',
+          startScript: 'C:\\ai\\run.bat',
+          logFile: 'C:\\ai\\out.log',
+          port: 9000,
+          startupGraceMs: 120000,
+        }}
         onSubmit={() => {}}
         onCancel={() => {}}
       />,
@@ -100,6 +146,24 @@ describe('ServiceForm', () => {
     expect(screen.getByRole('heading', { name: '编辑服务' })).toBeTruthy();
     expect(screen.getByLabelText('名称').value).toBe('推理服务');
     expect(screen.getByLabelText('端口').value).toBe('9000');
+    expect(screen.getByLabelText('启动宽限期').value).toBe('120000');
+  });
+
+  it('编辑模式：宽限期为 null 时输入框留空（表示沿用全局默认）', () => {
+    render(
+      <ServiceForm
+        initialValue={{
+          name: '推理服务',
+          workDir: 'C:\\ai',
+          startScript: 'C:\\ai\\run.bat',
+          logFile: 'C:\\ai\\out.log',
+          startupGraceMs: null,
+        }}
+        onSubmit={() => {}}
+        onCancel={() => {}}
+      />,
+    );
+    expect(screen.getByLabelText('启动宽限期').value).toBe('');
   });
 
   it('提交中：按钮禁用且显示「保存中…」，防重复提交', () => {

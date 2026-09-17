@@ -33,6 +33,11 @@ function normalizeStoredService(raw, { idFactory, now, usedIds }) {
   usedIds.add(id);
   const portRaw = raw.port;
   const port = Number.isInteger(portRaw) && portRaw >= SERVICE_LIMITS.portMin && portRaw <= SERVICE_LIMITS.portMax ? portRaw : null;
+  const graceRaw = raw.startupGraceMs;
+  const startupGraceMs =
+    Number.isInteger(graceRaw) && graceRaw >= SERVICE_LIMITS.startupGraceMsMin && graceRaw <= SERVICE_LIMITS.startupGraceMsMax
+      ? graceRaw
+      : null;
   return {
     id,
     name: str(raw.name),
@@ -40,6 +45,7 @@ function normalizeStoredService(raw, { idFactory, now, usedIds }) {
     startScript: str(raw.startScript),
     logFile: str(raw.logFile),
     port,
+    startupGraceMs,
     createdAt: toIso(raw.createdAt, now()),
     updatedAt: toIso(raw.updatedAt, now()),
   };

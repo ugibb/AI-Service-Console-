@@ -22,6 +22,8 @@ export function serializeService(service, state, { includeDiagnostics = false } 
     startScript: service.startScript,
     logFile: service.logFile,
     port: service.port ?? null,
+    /** 启动宽限期（毫秒）；null = 未单独配置，沿用全局默认（config.proc.startupGraceMs） */
+    startupGraceMs: service.startupGraceMs ?? null,
     createdAt: service.createdAt,
     updatedAt: service.updatedAt,
 

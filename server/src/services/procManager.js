@@ -73,6 +73,31 @@ function sleep(ms) {
   });
 }
 
+/** 宽限期的可读写法：5000 → 5s，150 → 150ms */
+function formatGrace(ms) {
+  return ms % 1000 === 0 ? `${ms / 1000}s` : `${ms}ms`;
+}
+
+/**
+ * 解析单个服务的启动时序参数（PRD §7.1 与「AI 服务加载慢」的适配）。
+ *
+ * - graceMs：进程存活多久之前仍显示 `starting`。服务级配置优先，否则用全局默认。
+ * - failureWindowMs：多久之内退出算「启动失败」而不是「异常退出」。
+ *   启用宽限期时**就等于宽限期**——否则会出现「宽限期内退出却判成 error」的矛盾；
+ *   宽限期为 0（显式关闭）时退回旧的固定窗口，保持既有行为不变。
+ *
+ * @param {object} service 持久化配置
+ * @param {object} procConfig config.proc
+ */
+export function resolveProcTiming(service, procConfig) {
+  const serviceGrace = Number.isInteger(service?.startupGraceMs) ? service.startupGraceMs : null;
+  const graceMs = serviceGrace ?? procConfig.startupGraceMs ?? 0;
+  return {
+    graceMs,
+    failureWindowMs: graceMs > 0 ? graceMs : procConfig.startFailureWindowMs,
+  };
+}
+
 /**
  * @param {{
  *   adapter: { spawn: Function, killTree: Function, isAlive: Function, platform?: string },
@@ -122,7 +147,8 @@ export function createProcManager({ adapter, store, config, logger = console, no
       session.timers.delete(timer);
       const current = stateOf(id);
       if (session.generation !== current.generation) return;
-      if (current.status !== PROC_STATES.RUNNING) return;
+      // 宽限期内是 starting、之后是 running，两种状态都要盯 PID 存活
+      if (current.status !== PROC_STATES.RUNNING && current.status !== PROC_STATES.STARTING) return;
       if (session.exited) return;
       if (adapter.isAlive(current.pid)) return;
       finishFailure(id, session, {
@@ -132,6 +158,19 @@ export function createProcManager({ adapter, store, config, logger = console, no
           `服务很可能没有真正跑起来，或脚本启动后立即退出。${NONBLOCKING_HINT}`,
       });
     }, procConfig.startVerifyDelayMs);
+    session.timers.add(timer);
+  }
+
+  /** 宽限期结束仍存活 → running（AI 服务加载模型期间的「启动中」到此结束） */
+  function scheduleRunning(id, session) {
+    const timer = setTimeout(() => {
+      session.timers.delete(timer);
+      const current = stateOf(id);
+      if (session.generation !== current.generation) return;
+      if (session.exited) return;
+      if (current.status !== PROC_STATES.STARTING) return;
+      patch(id, { status: PROC_STATES.RUNNING, message: null });
+    }, session.graceMs);
     session.timers.add(timer);
   }
 
@@ -174,7 +213,7 @@ export function createProcManager({ adapter, store, config, logger = console, no
     }
 
     const elapsed = current.startedAt === null ? 0 : now() - current.startedAt;
-    if (elapsed < procConfig.startFailureWindowMs) {
+    if (elapsed < (session.failureWindowMs ?? procConfig.startFailureWindowMs)) {
       const reason = exitCode === 0 ? FAILURE_REASONS.EXITED_EARLY_ZERO : FAILURE_REASONS.EXITED_EARLY_NONZERO;
       const message =
         exitCode === 0
@@ -215,6 +254,7 @@ export function createProcManager({ adapter, store, config, logger = console, no
       exited: false,
       exitHandled: false,
       diagFrozen: false,
+      ...resolveProcTiming(service, procConfig),
     };
 
     patch(id, {
@@ -236,10 +276,11 @@ export function createProcManager({ adapter, store, config, logger = console, no
     const freezeTimer = setTimeout(() => {
       session.diagFrozen = true;
       session.timers.delete(freezeTimer);
-      if (stateOf(id).status === PROC_STATES.RUNNING) {
+      const status = stateOf(id).status;
+      if (status === PROC_STATES.RUNNING || status === PROC_STATES.STARTING) {
         patch(id, { diag: session.diagBuffer.lines() });
       }
-    }, procConfig.startFailureWindowMs);
+    }, session.failureWindowMs);
     session.timers.add(freezeTimer);
 
     // startFlow 在整个「spawn 落地 + 状态落到 running」之后才 resolve，
@@ -280,12 +321,24 @@ export function createProcManager({ adapter, store, config, logger = console, no
       return stateOf(id);
     }
 
-    patch(id, {
-      status: PROC_STATES.RUNNING,
-      pid: spawnResult.pid,
-      startedAt: now(),
-      message: null,
-    });
+    const startedAt = now();
+    if (session.graceMs > 0) {
+      // 宽限期内保持「启动中」：AI 服务此时模型还没加载完，不能显示成「运行中」骗用户。
+      // 状态没变（start 时已是 starting），因此 patch 不会触发状态回调，只更新 pid / startedAt。
+      patch(id, {
+        pid: spawnResult.pid,
+        startedAt,
+        message: `启动中：进程已拉起（pid=${spawnResult.pid}），等待服务就绪（宽限期 ${formatGrace(session.graceMs)}）`,
+      });
+      scheduleRunning(id, session);
+    } else {
+      patch(id, {
+        status: PROC_STATES.RUNNING,
+        pid: spawnResult.pid,
+        startedAt,
+        message: null,
+      });
+    }
     scheduleVerify(id, session);
     return stateOf(id);
   }

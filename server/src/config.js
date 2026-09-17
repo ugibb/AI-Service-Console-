@@ -9,6 +9,7 @@
  */
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { MAX_STARTUP_GRACE_MS } from './lib/validate.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -94,7 +95,18 @@ export function loadConfig(env = process.env) {
     proc: {
       /** spawn 成功后的存活校验延迟（防御「启动即退出」型 .bat，见 PRD §7.3） */
       startVerifyDelayMs: readInt(env, 'LSC_START_VERIFY_DELAY_MS', 800, { min: 50, max: 30000, warnings }),
-      /** 启动失败判定窗口：窗口内退出即视为启动失败（含退出码 0） */
+      /**
+       * 启动宽限期默认值（毫秒）：服务未单独配置 startupGraceMs 时用它。
+       *
+       * 宽限期内进程存活 → 状态为 starting（UI 显示「启动中」+ 已启动时长）；
+       * 宽限期结束仍存活 → running。宽限期内退出 → start_failed；宽限期后退出 → error。
+       * AI / LLM 服务加载模型要几十秒到几分钟，应在服务上单独设大（如 60000）。
+       */
+      startupGraceMs: readInt(env, 'LSC_STARTUP_GRACE_MS', 5000, { min: 0, max: MAX_STARTUP_GRACE_MS, warnings }),
+      /**
+       * 启动失败判定窗口：**仅在服务未启用宽限期（startupGraceMs 为 0/缺省且全局宽限期为 0）时生效**，
+       * 作为「窗口内退出即视为启动失败（含退出码 0）」的兜底判定。
+       */
       startFailureWindowMs: readInt(env, 'LSC_START_FAILURE_WINDOW_MS', 5000, { min: 100, max: 120000, warnings }),
       /** 停止宽限：先 taskkill /T，等待该时长未退出则 /T /F 强杀 */
       stopGraceTimeoutMs: readInt(env, 'LSC_STOP_GRACE_MS', 5000, { min: 100, max: 120000, warnings }),

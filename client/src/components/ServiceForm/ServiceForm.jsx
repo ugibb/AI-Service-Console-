@@ -4,15 +4,25 @@ import './ServiceForm.css';
 /** 与 server/src/lib/validate.js 的 CMD_UNSAFE_PATTERN 保持一致（前端只做提前提示，权威校验在服务端） */
 const CMD_UNSAFE_PATTERN = /["&|<>^\r\n\0]/;
 
+/** 与 server/src/lib/validate.js 的 MAX_STARTUP_GRACE_MS 保持一致（30 分钟） */
+const MAX_STARTUP_GRACE_MS = 30 * 60 * 1000;
+
 const FIELDS = Object.freeze([
   { key: 'name', label: '名称', hint: '显示用，例如「订单服务」', placeholder: '订单服务' },
   { key: 'workDir', label: '工作目录', hint: '启动脚本将在此目录下执行', placeholder: 'C:\\services\\order' },
   { key: 'startScript', label: '启动脚本', hint: '要执行的 .bat 文件；建议填绝对路径', placeholder: 'C:\\services\\order\\start.bat' },
   { key: 'logFile', label: '日志文件', hint: '服务自己写的日志文件；控制台只读它', placeholder: 'C:\\services\\order\\logs\\app.log' },
-  { key: 'port', label: '端口', hint: '选填，仅记录展示，不用于探活', placeholder: '8081' },
+  { key: 'port', label: '端口', hint: '选填，仅记录展示，不用于探活', placeholder: '8081', numeric: true },
+  {
+    key: 'startupGraceMs',
+    label: '启动宽限期',
+    hint: '选填，单位毫秒；留空沿用全局默认。宽限期内进程还活着显示「启动中」并计时，超过才判定「运行中」。AI 服务加载模型慢，建议 60000（60 秒）或更大',
+    placeholder: '60000',
+    numeric: true,
+  },
 ]);
 
-const emptyValues = { name: '', workDir: '', startScript: '', logFile: '', port: '' };
+const emptyValues = { name: '', workDir: '', startScript: '', logFile: '', port: '', startupGraceMs: '' };
 
 const toFormValues = (initialValue) => ({
   name: initialValue?.name ?? '',
@@ -20,12 +30,21 @@ const toFormValues = (initialValue) => ({
   startScript: initialValue?.startScript ?? '',
   logFile: initialValue?.logFile ?? '',
   port: initialValue?.port == null ? '' : String(initialValue.port),
+  startupGraceMs: initialValue?.startupGraceMs == null ? '' : String(initialValue.startupGraceMs),
 });
 
 function parsePort(raw) {
   if (raw === undefined || raw === null || String(raw).trim() === '') return { ok: true, value: null };
   const value = Number(String(raw).trim());
   if (!Number.isInteger(value) || value < 1 || value > 65535) return { ok: false };
+  return { ok: true, value };
+}
+
+/** 留空 = 沿用服务端全局默认（null）；0 是合法值，表示显式关闭宽限期 */
+function parseGrace(raw) {
+  if (raw === undefined || raw === null || String(raw).trim() === '') return { ok: true, value: null };
+  const value = Number(String(raw).trim());
+  if (!Number.isInteger(value) || value < 0 || value > MAX_STARTUP_GRACE_MS) return { ok: false };
   return { ok: true, value };
 }
 
@@ -45,6 +64,9 @@ export function validate(values) {
   }
   if (!parsePort(values.port).ok) {
     errors.port = '端口需为 1-65535 之间的整数，或留空';
+  }
+  if (!parseGrace(values.startupGraceMs).ok) {
+    errors.startupGraceMs = `启动宽限期需为 0-${MAX_STARTUP_GRACE_MS} 之间的整数毫秒数，或留空（注意单位是毫秒，60000 = 60 秒）`;
   }
   return errors;
 }
@@ -79,6 +101,7 @@ export function ServiceForm({ initialValue = null, onSubmit, onCancel, submittin
       startScript: values.startScript.trim(),
       logFile: values.logFile.trim(),
       port: port.value,
+      startupGraceMs: parseGrace(values.startupGraceMs).value,
     });
   };
 
@@ -102,7 +125,7 @@ export function ServiceForm({ initialValue = null, onSubmit, onCancel, submittin
               id={`${formId}-${field.key}`}
               className="field__input"
               type="text"
-              inputMode={field.key === 'port' ? 'numeric' : undefined}
+              inputMode={field.numeric ? 'numeric' : undefined}
               value={values[field.key]}
               placeholder={field.placeholder}
               autoComplete="off"

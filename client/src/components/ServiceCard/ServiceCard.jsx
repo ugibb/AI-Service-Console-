@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useNow } from '../../hooks/useNow.js';
+import { formatElapsed } from '../../lib/duration.js';
 import { StatusBadge } from '../StatusBadge/StatusBadge.jsx';
 import './ServiceCard.css';
 
@@ -10,6 +12,16 @@ const BUSY_LABELS = Object.freeze({
 
 const STOPPABLE = ['running', 'starting'];
 const STARTABLE = ['stopped', 'error', 'start_failed'];
+
+/**
+ * 启动中已用时长。每秒走一次，让「启动中」看起来是在推进而不是卡死——
+ * AI 服务加载模型要几十秒，没有计时的话用户分不清「在加载」和「挂了」。
+ */
+function StartingElapsed({ startedAt }) {
+  const nowMs = useNow() * 1000;
+  const elapsedMs = nowMs - new Date(startedAt).getTime();
+  return <span className="service-card__elapsed">已启动 {formatElapsed(elapsedMs)}</span>;
+}
 
 /**
  * 单个服务卡片（T1.14）。
@@ -31,7 +43,10 @@ export function ServiceCard({ service, busy = null, active = false, onStart, onS
     <article className={`service-card${active ? ' service-card--active' : ''}`} aria-current={active ? 'true' : undefined}>
       <header className="service-card__head">
         <h3 className="service-card__name">{service.name}</h3>
-        <StatusBadge status={status} exitCode={service.exitCode} />
+        <div className="service-card__status">
+          <StatusBadge status={status} exitCode={service.exitCode} />
+          {status === 'starting' && service.startedAt ? <StartingElapsed startedAt={service.startedAt} /> : null}
+        </div>
       </header>
 
       <dl className="service-card__meta">

@@ -12,6 +12,7 @@ test('loadConfig：默认值符合 PRD（127.0.0.1:3010，tail 500，GBK 回退�
   assert.equal(cfg.log.fallbackEncoding, 'gbk');
   assert.equal(cfg.log.preferredEncoding, 'utf8');
   assert.equal(cfg.proc.startFailureWindowMs, 5000);
+  assert.equal(cfg.proc.startupGraceMs, 5000, '启动宽限期默认 5000ms');
   assert.equal(cfg.proc.stopGraceTimeoutMs, 5000);
   assert.equal(cfg.poll.logsMs, 1000);
   assert.equal(cfg.poll.servicesMs, 1500);
@@ -26,12 +27,14 @@ test('loadConfig：环境变量可覆盖端口 / 绑定地址 / 数据目录（�
     LSC_DATA_DIR: './tmp-data',
     LSC_LOG_TAIL_LINES: '1200',
     LSC_POLL_LOGS_MS: '2500',
+    LSC_STARTUP_GRACE_MS: '60000',
     LSC_SERVE_CLIENT: '0',
   });
   assert.equal(cfg.port, 4321);
   assert.equal(cfg.host, '0.0.0.0');
   assert.equal(cfg.log.defaultTailLines, 1200);
   assert.equal(cfg.poll.logsMs, 2500);
+  assert.equal(cfg.proc.startupGraceMs, 60000, '全局默认宽限期可用 LSC_STARTUP_GRACE_MS 调整（AI 服务场景）');
   assert.equal(cfg.serveClient, false);
   assert.ok(path.isAbsolute(cfg.dataDir), '数据目录应被解析为绝对路径');
   assert.ok(cfg.dataDir.endsWith(`${path.sep}tmp-data`));

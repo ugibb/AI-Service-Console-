@@ -8,14 +8,19 @@
  */
 import { AppError, ERROR_CODES } from './errors.js';
 
+/** 启动宽限期上限：30 分钟（防止误把秒数当毫秒填进来，例如填 60000 秒 = 1000 分钟） */
+export const MAX_STARTUP_GRACE_MS = 30 * 60 * 1000;
+
 export const SERVICE_LIMITS = Object.freeze({
   name: 100,
   path: 500,
   portMin: 1,
   portMax: 65535,
+  startupGraceMsMin: 0,
+  startupGraceMsMax: MAX_STARTUP_GRACE_MS,
 });
 
-export const SERVICE_FIELDS = Object.freeze(['name', 'workDir', 'startScript', 'logFile', 'port']);
+export const SERVICE_FIELDS = Object.freeze(['name', 'workDir', 'startScript', 'logFile', 'port', 'startupGraceMs']);
 export const REQUIRED_FIELDS = Object.freeze(['name', 'workDir', 'startScript', 'logFile']);
 
 /** cmd.exe 无法安全承载的字符（路径会经 cmd 执行） */
@@ -28,6 +33,7 @@ const FIELD_LABELS = Object.freeze({
   startScript: '启动脚本',
   logFile: '日志文件',
   port: '端口',
+  startupGraceMs: '启动宽限期',
 });
 
 function validateText(value, field, errors) {
@@ -88,6 +94,25 @@ function validatePort(value, errors) {
 }
 
 /**
+ * 启动宽限期（毫秒）：可选。留空 → null，表示沿用全局默认（config.proc.startupGraceMs）。
+ * 只允许非负整数，并设上限防止误填（把「秒」当「毫秒」写进来是最常见的误填）。
+ */
+function validateStartupGraceMs(value, errors) {
+  if (value === undefined || value === null || value === '') return null;
+  const num = typeof value === 'string' ? Number(value.trim()) : value;
+  if (!Number.isInteger(num) || num < SERVICE_LIMITS.startupGraceMsMin || num > SERVICE_LIMITS.startupGraceMsMax) {
+    errors.push({
+      field: 'startupGraceMs',
+      message:
+        `启动宽限期必须是 ${SERVICE_LIMITS.startupGraceMsMin}~${SERVICE_LIMITS.startupGraceMsMax} 之间的整数毫秒数；` +
+        '可留空（沿用全局默认）。AI 服务建议 60000（60 秒）或更大',
+    });
+    return undefined;
+  }
+  return num;
+}
+
+/**
  * @param {unknown} input
  * @returns {{ ok: true, value: object } | { ok: false, errors: {field:string,message:string}[] }}
  */
@@ -103,6 +128,7 @@ export function validateServiceInput(input) {
     startScript: validateText(input.startScript, 'startScript', errors),
     logFile: validateText(input.logFile, 'logFile', errors),
     port: validatePort(input.port, errors),
+    startupGraceMs: validateStartupGraceMs(input.startupGraceMs, errors),
   };
 
   if (errors.length > 0) return { ok: false, errors };
