@@ -1,0 +1,30 @@
+# 依赖
+node_modules/
+
+# 构建产物
+dist/
+build/
+*.tsbuildinfo
+
+# 运行时数据（服务台账、日志缓存等）
+data/
+
+# 日志
+*.log
+logs/
+
+# 环境变量
+.env
+.env.local
+.env.*.local
+
+# 编辑器 / 系统
+.DS_Store
+.vscode/
+.idea/
+
+# 测试产物
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
