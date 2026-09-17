@@ -31,8 +31,11 @@ export function makeProcConfig(overrides = {}) {
 
 /**
  * 建一个可直接用的环境。services 里传的字段会覆盖默认值。
+ *
+ * adapter 可选：默认用 fakeAdapter；需要模拟「适配器行为不合契约」这类防御场景时，
+ * 传一个自定义 stub 进来（见 procManagerDefensive.test.js）。
  */
-export async function makeHarness({ procConfig = {}, services = [], firstPid = 4000 } = {}) {
+export async function makeHarness({ procConfig = {}, services = [], firstPid = 4000, adapter = null } = {}) {
   const dir = await makeTempDir();
   const workDir = path.join(dir, 'svc');
   await fs.mkdir(workDir, { recursive: true });
@@ -52,15 +55,15 @@ export async function makeHarness({ procConfig = {}, services = [], firstPid = 4
     created.push(await store.create({ name: input.name ?? 'svc', workDir, startScript: scriptPath, logFile, ...input }));
   }
 
-  const adapter = createFakeAdapter({ firstPid });
+  const procAdapter = adapter ?? createFakeAdapter({ firstPid });
   const procManager = createProcManager({
-    adapter,
+    adapter: procAdapter,
     store,
     config: makeProcConfig(procConfig),
     logger: createSilentLogger(),
   });
 
-  return { dir, workDir, scriptPath, logFile, store, adapter, procManager, services: created };
+  return { dir, workDir, scriptPath, logFile, store, adapter: procAdapter, procManager, services: created };
 }
 
 export { makeTempDir };

@@ -35,10 +35,25 @@ function requestLogger(logger) {
   };
 }
 
-function parseErrorHandler() {
+/**
+ * 把 body-parser 的错误翻译成本项目的中文错误信封。
+ *
+ * 不翻译的话，body-parser 的错误（`expose: true`）会被原样透出去：
+ * 413 会带上 INTERNAL_ERROR 这个服务端错误码和英文原文，客户端错误被误标成服务端错误。
+ */
+function parseErrorHandler({ jsonBodyLimit }) {
   return (err, req, res, next) => {
     if (err?.type === 'entity.parse.failed') {
       next(new AppError(ERROR_CODES.BAD_REQUEST, '请求体不是合法 JSON', { status: 400 }));
+      return;
+    }
+    if (err?.type === 'entity.too.large') {
+      next(
+        new AppError(ERROR_CODES.PAYLOAD_TOO_LARGE, `请求体过大，上限为 ${jsonBodyLimit}`, {
+          status: 413,
+          details: { limit: jsonBodyLimit },
+        }),
+      );
       return;
     }
     next(err);
@@ -53,10 +68,10 @@ export function createApp({ store, procManager, config, logger = console, starte
   const app = express();
   app.disable('x-powered-by');
   app.use(express.json({ limit: config.jsonBodyLimit }));
-  app.use(parseErrorHandler());
+  app.use(parseErrorHandler({ jsonBodyLimit: config.jsonBodyLimit }));
   app.use(requestLogger(logger));
 
-  app.use('/api/health', createHealthRouter({ config, startedAt }));
+  app.use('/api/health', createHealthRouter({ config, procManager, startedAt }));
   app.use('/api/services', createActionsRouter({ store, procManager }));
   app.use('/api/services', createLogsRouter({ store, config }));
   app.use('/api/services', createServicesRouter({ store, procManager, config }));

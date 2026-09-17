@@ -36,8 +36,11 @@ export function App({ api = FALLBACK_API, store, servicesPollMs = 1500, logsPoll
   const failedKey = failedIds.join(',');
   useEffect(() => {
     for (const id of failedIds) servicesStore.hydrateDiagnostics(id);
+    // 依赖里带 lastUpdatedAt（每次 load 成功都会变）：列表本身不带诊断，一次瞬时失败若
+    // 只靠 failedKey 触发就再也不会重试，卡片会永久空着。跟着轮询重试即可自愈——
+    // 请求成功那一刻该服务就退出重试集合；轮询间隔本身就是节流，无需再加退避。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [failedKey, servicesStore]);
+  }, [failedKey, state.lastUpdatedAt, servicesStore]);
 
   const selected = selectedId ? (state.services.find((item) => item.id === selectedId) ?? null) : null;
 

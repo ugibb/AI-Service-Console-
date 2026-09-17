@@ -112,6 +112,37 @@ test('GET /api/health：返回 ok、平台与轮询节奏（T0.4 联调探针）
   }
 });
 
+test('GET /api/health：adapter 报告的是「实际生效的适配器」，不是配置值（QA 6.2）', async () => {
+  const api = await makeApi();
+  try {
+    const { body } = await call(api.base, '/api/health');
+    // 配置里写的是 win32，但本机不是 Windows → 真正在用的是 fake/unsupported
+    assert.equal(body.data.adapter, api.adapter.platform, 'adapter 必须等于 procManager 实际持有的适配器');
+    assert.equal(body.data.adapterSupported, true);
+    assert.equal(body.data.adapterConfigured, api.config.adapter, '配置值另开字段，不再冒充实际值');
+  } finally {
+    await api.close();
+  }
+});
+
+test('POST 超过 body 上限：413 + 中文提示 + 专用错误码（QA 6.3）', async () => {
+  const api = await makeApi();
+  try {
+    const huge = 'x'.repeat(300 * 1024); // 默认 jsonBodyLimit 为 256kb
+    const { status, body } = await call(api.base, '/api/services', {
+      method: 'POST',
+      body: { name: huge, workDir: 'C:\\x', startScript: 'C:\\x\\a.bat', logFile: 'C:\\x\\a.log' },
+    });
+    assert.equal(status, 413);
+    assert.equal(body.ok, false);
+    assert.equal(body.error.code, 'PAYLOAD_TOO_LARGE');
+    assert.match(body.error.message, /请求体过大/);
+    assert.doesNotMatch(body.error.message, /request entity too large/, '不能把 body-parser 的英文原文透给用户');
+  } finally {
+    await api.close();
+  }
+});
+
 test('GET /api/services：空列表 + 无告警', async () => {
   const api = await makeApi();
   try {

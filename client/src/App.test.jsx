@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from './App.jsx';
 import { createServicesStore } from './store/servicesStore.js';
@@ -23,6 +23,7 @@ function makeApi(over = {}) {
     createService: vi.fn(async (input) => service({ id: 'new', ...input })),
     updateService: vi.fn(async (id, input) => service({ id, ...input })),
     deleteService: vi.fn(async () => ({ removed: true })),
+    getService: vi.fn(async (id) => service({ id })),
     startService: vi.fn(async (id) => ({ action: { name: 'start' }, service: service({ id, status: 'running', pid: 1 }) })),
     stopService: vi.fn(async (id) => ({ action: { name: 'stop' }, service: service({ id }) })),
     restartService: vi.fn(async (id) => ({ action: { name: 'restart' }, service: service({ id, status: 'running', pid: 2 }) })),
@@ -117,6 +118,46 @@ describe('App', () => {
     await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('连接不上后端'));
     await user.click(screen.getByRole('button', { name: '关闭提示' }));
     expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('失败态服务：列表不带诊断时按需调详情接口补齐并渲染（QA 6.4）', async () => {
+    const api = makeApi({
+      listServices: vi.fn(async () => ({
+        services: [service({ status: 'start_failed', statusMessage: '启动失败', exitCode: 1 })],
+        warnings: [],
+        poll: { logsMs: 1000, servicesMs: 1500 },
+      })),
+      getService: vi.fn(async (id) =>
+        service({ id, status: 'start_failed', exitCode: 1, startupDiagnostics: ['错误：系统找不到指定的路径。'] }),
+      ),
+    });
+    setup(api);
+
+    await waitFor(() => expect(api.getService).toHaveBeenCalledWith('s1'));
+    await waitFor(() => expect(screen.getByText('启动诊断输出（1 行）')).toBeTruthy());
+    expect(screen.getByText(/系统找不到指定的路径/)).toBeTruthy();
+  });
+
+  it('失败态补诊断：详情请求失败后，下一次列表刷新会重试而不是永久卡住（QA 6.4）', async () => {
+    const failedNoDiag = service({ status: 'error', statusMessage: '进程异常退出', exitCode: 1 });
+    const api = makeApi({
+      listServices: vi.fn(async () => ({ services: [failedNoDiag], warnings: [], poll: { logsMs: 1000, servicesMs: 1500 } })),
+      getService: vi
+        .fn()
+        .mockRejectedValueOnce(new Error('详情接口临时失败'))
+        .mockResolvedValueOnce(service({ id: 's1', status: 'error', exitCode: 1, startupDiagnostics: ['重试后取到的诊断'] })),
+    });
+    const { store } = setup(api);
+
+    await waitFor(() => expect(api.getService).toHaveBeenCalledTimes(1));
+
+    // 模拟下一次轮询（usePolling 做的就是 servicesStore.load()）
+    await act(async () => {
+      await store.load();
+    });
+
+    await waitFor(() => expect(api.getService).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.getByText(/重试后取到的诊断/)).toBeTruthy());
   });
 
   it('表单提交失败：保留表单并就地展示后端错误（不静默关闭、不丢用户输入）', async () => {
