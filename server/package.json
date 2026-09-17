@@ -1,0 +1,21 @@
+{
+  "name": "@lsc/server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "本地服务控制台后端（Express + 进程管理 + 日志 tail）",
+  "type": "module",
+  "main": "src/index.js",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js",
+    "test": "node --test",
+    "test:cov": "node --test --experimental-test-coverage"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "iconv-lite": "^0.7.3"
+  }
+}
