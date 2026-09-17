@@ -53,9 +53,7 @@ export function loadConfig(env = process.env) {
 
   const port = readInt(env, 'LSC_PORT', 3010, { min: 1, max: 65535, warnings });
   const host = env.LSC_HOST?.trim() || '127.0.0.1';
-  const dataDir = env.LSC_DATA_DIR?.trim()
-    ? path.resolve(env.LSC_DATA_DIR.trim())
-    : path.join(PROJECT_ROOT, 'data');
+  const dataDir = env.LSC_DATA_DIR?.trim() ? path.resolve(env.LSC_DATA_DIR.trim()) : path.join(PROJECT_ROOT, 'data');
 
   const defaultTailLines = readInt(env, 'LSC_LOG_TAIL_LINES', DEFAULT_TAIL_LINES, {
     min: 1,

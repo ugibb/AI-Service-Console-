@@ -26,7 +26,12 @@ describe('usePolling', () => {
   it('上一次未返回时跳过本次 tick（防重叠，不堆请求）', async () => {
     vi.useFakeTimers();
     let resolveTask;
-    const task = vi.fn(() => new Promise((resolve) => { resolveTask = resolve; }));
+    const task = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          resolveTask = resolve;
+        }),
+    );
     renderHook(() => usePolling(task, { intervalMs: 1000 }));
 
     await flush(0);

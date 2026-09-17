@@ -165,7 +165,8 @@ test('createWin32Adapter.spawn：spawn 抛错时同步 reject（不挂起）', a
 test('createWin32Adapter.killTree：真实执行 taskkill 时用假 spawnImpl 验证参数与结果映射', async () => {
   const { EventEmitter } = await import('node:events');
   const calls = [];
-  const makeSpawn = (exitCode, stderr = '') =>
+  const makeSpawn =
+    (exitCode, stderr = '') =>
     (file, args, options) => {
       calls.push({ file, args, options });
       const child = new EventEmitter();

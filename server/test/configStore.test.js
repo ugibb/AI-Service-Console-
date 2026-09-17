@@ -113,10 +113,7 @@ test('并发写：多次同时修改全部落盘，且不相互覆盖（写操�
   ]);
   assert.equal(store.count(), 3);
   const onDisk = await readJson(filePath);
-  assert.deepEqual(
-    onDisk.services.map((s) => s.name).sort(),
-    ['svc-1', 'svc-2', 'svc-3'],
-  );
+  assert.deepEqual(onDisk.services.map((s) => s.name).sort(), ['svc-1', 'svc-2', 'svc-3']);
 });
 
 test('原子写：写完不留临时文件', async () => {

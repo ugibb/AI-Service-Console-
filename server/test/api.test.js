@@ -259,7 +259,8 @@ test('内部异常 → 500 且不泄漏堆栈', async () => {
 test('POST start / stop / restart：返回动作结果与最新服务状态', async () => {
   const api = await makeApi();
   try {
-    const id = (await call(api.base, '/api/services', { method: 'POST', body: sampleService(api.workDir, api.scriptPath, api.logFile) })).body.data.id;
+    const id = (await call(api.base, '/api/services', { method: 'POST', body: sampleService(api.workDir, api.scriptPath, api.logFile) }))
+      .body.data.id;
 
     const started = await call(api.base, `/api/services/${id}/start`, { method: 'POST' });
     assert.equal(started.status, 200);
@@ -291,7 +292,8 @@ test('POST start / stop / restart：返回动作结果与最新服务状态', as
 test('运行中的服务禁止编辑与删除（否则会丢 PID、留下无法管理的孤儿进程）', async () => {
   const api = await makeApi();
   try {
-    const id = (await call(api.base, '/api/services', { method: 'POST', body: sampleService(api.workDir, api.scriptPath, api.logFile) })).body.data.id;
+    const id = (await call(api.base, '/api/services', { method: 'POST', body: sampleService(api.workDir, api.scriptPath, api.logFile) }))
+      .body.data.id;
     await call(api.base, `/api/services/${id}/start`, { method: 'POST' });
 
     const put = await call(api.base, `/api/services/${id}`, {
@@ -319,7 +321,8 @@ test('运行中的服务禁止编辑与删除（否则会丢 PID、留下无法�
 test('GET logs：返回尾部 N 行 + 编码 + hasMore', async () => {
   const api = await makeApi();
   try {
-    const id = (await call(api.base, '/api/services', { method: 'POST', body: sampleService(api.workDir, api.scriptPath, api.logFile) })).body.data.id;
+    const id = (await call(api.base, '/api/services', { method: 'POST', body: sampleService(api.workDir, api.scriptPath, api.logFile) }))
+      .body.data.id;
     await fs.writeFile(api.logFile, '第一行\n第二行\n第三行\n');
 
     const all = await call(api.base, `/api/services/${id}/logs`);
@@ -347,7 +350,8 @@ test('GET logs：返回尾部 N 行 + 编码 + hasMore', async () => {
 test('GET logs：非法 tail 参数回退默认值，超大 tail 被夹到上限', async () => {
   const api = await makeApi();
   try {
-    const id = (await call(api.base, '/api/services', { method: 'POST', body: sampleService(api.workDir, api.scriptPath, api.logFile) })).body.data.id;
+    const id = (await call(api.base, '/api/services', { method: 'POST', body: sampleService(api.workDir, api.scriptPath, api.logFile) }))
+      .body.data.id;
     await fs.writeFile(api.logFile, 'only\n');
 
     assert.equal((await call(api.base, `/api/services/${id}/logs?tail=abc`)).body.data.tail, 500);
@@ -361,7 +365,8 @@ test('GET logs：非法 tail 参数回退默认值，超大 tail 被夹到上限
 test('GET logs：日志文件不存在 → 200 + available:false + 引导文案（不报错）', async () => {
   const api = await makeApi();
   try {
-    const id = (await call(api.base, '/api/services', { method: 'POST', body: sampleService(api.workDir, api.scriptPath, api.logFile) })).body.data.id;
+    const id = (await call(api.base, '/api/services', { method: 'POST', body: sampleService(api.workDir, api.scriptPath, api.logFile) }))
+      .body.data.id;
     const { status, body } = await call(api.base, `/api/services/${id}/logs`);
     assert.equal(status, 200);
     assert.equal(body.data.available, false);
@@ -378,7 +383,8 @@ test('GET logs：日志路径是目录 → 200 + kind:directory + 明确提示',
   try {
     const asDir = path.join(api.workDir, 'logdir');
     await fs.mkdir(asDir, { recursive: true });
-    const id = (await call(api.base, '/api/services', { method: 'POST', body: sampleService(api.workDir, api.scriptPath, asDir) })).body.data.id;
+    const id = (await call(api.base, '/api/services', { method: 'POST', body: sampleService(api.workDir, api.scriptPath, asDir) })).body
+      .data.id;
 
     const { status, body } = await call(api.base, `/api/services/${id}/logs`);
     assert.equal(status, 200);
@@ -394,7 +400,8 @@ test('启动失败原因通过详情/动作接口透出（含启动诊断输出�
   const api = await makeApi();
   try {
     api.adapter.setBehavior({ exitAfterSpawn: { code: 1, delayMs: 10 } });
-    const id = (await call(api.base, '/api/services', { method: 'POST', body: sampleService(api.workDir, api.scriptPath, api.logFile) })).body.data.id;
+    const id = (await call(api.base, '/api/services', { method: 'POST', body: sampleService(api.workDir, api.scriptPath, api.logFile) }))
+      .body.data.id;
 
     await call(api.base, `/api/services/${id}/start`, { method: 'POST' });
     await new Promise((resolve) => setTimeout(resolve, 60));

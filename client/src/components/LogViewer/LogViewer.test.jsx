@@ -72,7 +72,15 @@ describe('LogViewer', () => {
     render(
       <LogViewer
         service={service}
-        api={makeApi(payload({ available: false, kind: 'missing', message: '日志文件尚未生成（服务可能未启动，或尚未产生输出）', lines: [], lineCount: 0 }))}
+        api={makeApi(
+          payload({
+            available: false,
+            kind: 'missing',
+            message: '日志文件尚未生成（服务可能未启动，或尚未产生输出）',
+            lines: [],
+            lineCount: 0,
+          }),
+        )}
         intervalMs={1000}
       />,
     );

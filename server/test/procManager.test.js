@@ -29,7 +29,10 @@ test('start：stopped → starting → running，记录 pid 并携带解析后�
 
 test('start：未知服务 id 抛 SERVICE_NOT_FOUND', async () => {
   const h = await makeHarness();
-  await assert.rejects(() => h.procManager.start('nope'), (err) => err.code === 'SERVICE_NOT_FOUND');
+  await assert.rejects(
+    () => h.procManager.start('nope'),
+    (err) => err.code === 'SERVICE_NOT_FOUND',
+  );
 });
 
 test('start：已在运行/启动中/停止中 → 拒绝并提示（PRD §12「对启动中服务再次点启动」）', async () => {
@@ -55,7 +58,10 @@ test('start：start 进行中（starting）时再次 start 也被拒绝', async 
 
   const pending = h.procManager.start(id);
   assert.equal(h.procManager.getState(id).status, STATE.STARTING);
-  await assert.rejects(() => h.procManager.start(id), (err) => err.code === 'SERVICE_BUSY');
+  await assert.rejects(
+    () => h.procManager.start(id),
+    (err) => err.code === 'SERVICE_BUSY',
+  );
 
   const state = await pending;
   assert.equal(state.status, STATE.RUNNING);
@@ -182,11 +188,7 @@ test('启动诊断：窗口内收集 stdout/stderr（跨块拼接），窗口后
   h.adapter.stderr(4000, 'ERROR: 端口被占用\n');
 
   await sleep(200); // 让启动窗口结束、诊断固化
-  assert.deepEqual(h.procManager.getState(id).diag, [
-    'Java HotSpot 17',
-    '正在连接数据库...',
-    'ERROR: 端口被占用',
-  ]);
+  assert.deepEqual(h.procManager.getState(id).diag, ['Java HotSpot 17', '正在连接数据库...', 'ERROR: 端口被占用']);
 
   // 窗口结束后不再收集
   h.adapter.stdout(4000, '后续输出不应进入诊断缓冲\n');
@@ -334,7 +336,10 @@ test('restart：已停止状态下直接启动', async () => {
 
 test('restart：未知服务抛 SERVICE_NOT_FOUND', async () => {
   const h = await makeHarness();
-  await assert.rejects(() => h.procManager.restart('nope'), (err) => err.code === 'SERVICE_NOT_FOUND');
+  await assert.rejects(
+    () => h.procManager.restart('nope'),
+    (err) => err.code === 'SERVICE_NOT_FOUND',
+  );
 });
 
 test('过期回调不会污染新一代状态（上一代进程的 exit 事件）', async () => {

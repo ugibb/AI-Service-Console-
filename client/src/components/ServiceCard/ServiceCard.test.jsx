@@ -21,7 +21,17 @@ const noop = () => {};
 
 describe('ServiceCard', () => {
   it('展示名称、状态、端口与工作目录（省掉「找目录」）', () => {
-    render(<ServiceCard service={service({ status: 'running', pid: 4242 })} onStart={noop} onStop={noop} onRestart={noop} onEdit={noop} onDelete={noop} onOpenLogs={noop} />);
+    render(
+      <ServiceCard
+        service={service({ status: 'running', pid: 4242 })}
+        onStart={noop}
+        onStop={noop}
+        onRestart={noop}
+        onEdit={noop}
+        onDelete={noop}
+        onOpenLogs={noop}
+      />,
+    );
     expect(screen.getByText('订单服务')).toBeTruthy();
     expect(screen.getByText('运行中')).toBeTruthy();
     expect(screen.getByText(/8081/)).toBeTruthy();
@@ -30,26 +40,59 @@ describe('ServiceCard', () => {
   });
 
   it('端口未填时不渲染空的端口字段（不留「端口：-」的噪声）', () => {
-    render(<ServiceCard service={service({ port: null })} onStart={noop} onStop={noop} onRestart={noop} onEdit={noop} onDelete={noop} onOpenLogs={noop} />);
+    render(
+      <ServiceCard
+        service={service({ port: null })}
+        onStart={noop}
+        onStop={noop}
+        onRestart={noop}
+        onEdit={noop}
+        onDelete={noop}
+        onOpenLogs={noop}
+      />,
+    );
     expect(screen.queryByText(/端口/)).toBeNull();
   });
 
   it('已停止：只能「启动」，停止/重启禁用', () => {
-    render(<ServiceCard service={service()} onStart={noop} onStop={noop} onRestart={noop} onEdit={noop} onDelete={noop} onOpenLogs={noop} />);
+    render(
+      <ServiceCard service={service()} onStart={noop} onStop={noop} onRestart={noop} onEdit={noop} onDelete={noop} onOpenLogs={noop} />,
+    );
     expect(screen.getByRole('button', { name: '启动' }).disabled).toBe(false);
     expect(screen.getByRole('button', { name: '停止' }).disabled).toBe(true);
     expect(screen.getByRole('button', { name: '重启' }).disabled).toBe(true);
   });
 
   it('运行中：可以停止与重启，启动禁用', () => {
-    render(<ServiceCard service={service({ status: 'running', pid: 1 })} onStart={noop} onStop={noop} onRestart={noop} onEdit={noop} onDelete={noop} onOpenLogs={noop} />);
+    render(
+      <ServiceCard
+        service={service({ status: 'running', pid: 1 })}
+        onStart={noop}
+        onStop={noop}
+        onRestart={noop}
+        onEdit={noop}
+        onDelete={noop}
+        onOpenLogs={noop}
+      />,
+    );
     expect(screen.getByRole('button', { name: '启动' }).disabled).toBe(true);
     expect(screen.getByRole('button', { name: '停止' }).disabled).toBe(false);
     expect(screen.getByRole('button', { name: '重启' }).disabled).toBe(false);
   });
 
   it('操作进行中：三个按钮全禁用并给出「启动中…」反馈，避免重复点击', () => {
-    render(<ServiceCard service={service()} busy="start" onStart={noop} onStop={noop} onRestart={noop} onEdit={noop} onDelete={noop} onOpenLogs={noop} />);
+    render(
+      <ServiceCard
+        service={service()}
+        busy="start"
+        onStart={noop}
+        onStop={noop}
+        onRestart={noop}
+        onEdit={noop}
+        onDelete={noop}
+        onOpenLogs={noop}
+      />,
+    );
     expect(screen.getByRole('button', { name: '启动中…' }).disabled).toBe(true);
     expect(screen.getByRole('button', { name: '停止' }).disabled).toBe(true);
     expect(screen.getByRole('button', { name: '重启' }).disabled).toBe(true);
@@ -104,7 +147,9 @@ describe('ServiceCard', () => {
   it('删除需要二次确认（防误删配置）', async () => {
     const user = userEvent.setup();
     const onDelete = vi.fn();
-    render(<ServiceCard service={service()} onStart={noop} onStop={noop} onRestart={noop} onEdit={noop} onDelete={onDelete} onOpenLogs={noop} />);
+    render(
+      <ServiceCard service={service()} onStart={noop} onStop={noop} onRestart={noop} onEdit={noop} onDelete={onDelete} onOpenLogs={noop} />,
+    );
 
     await user.click(screen.getByRole('button', { name: '删除' }));
     expect(onDelete).not.toHaveBeenCalled();
@@ -113,7 +158,18 @@ describe('ServiceCard', () => {
   });
 
   it('被选中的卡片有 aria-current 标记（详情面板与列表的对应关系）', () => {
-    render(<ServiceCard service={service()} active onStart={noop} onStop={noop} onRestart={noop} onEdit={noop} onDelete={noop} onOpenLogs={noop} />);
+    render(
+      <ServiceCard
+        service={service()}
+        active
+        onStart={noop}
+        onStop={noop}
+        onRestart={noop}
+        onEdit={noop}
+        onDelete={noop}
+        onOpenLogs={noop}
+      />,
+    );
     expect(screen.getByRole('article').getAttribute('aria-current')).toBe('true');
   });
 });

@@ -15,9 +15,7 @@ export async function makeTempDir(prefix = 'lsc-test-') {
 }
 
 export async function cleanupTempDirs() {
-  await Promise.all(
-    created.splice(0).map((dir) => fs.rm(dir, { recursive: true, force: true }).catch(() => {})),
-  );
+  await Promise.all(created.splice(0).map((dir) => fs.rm(dir, { recursive: true, force: true }).catch(() => {})));
 }
 
 export async function writeFileIn(dir, name, content) {

@@ -26,12 +26,18 @@ test('selectAdapter：配置为 win32 但当前不是 Windows → 占位适配�
     assert.equal(warnings.length, 1);
     assert.match(warnings[0], /仅在 Windows 上可用/);
 
-    await assert.rejects(() => adapter.spawn({ scriptPath: 'x.bat', workDir: '.' }), (err) => {
-      assert.equal(err.code, 'ADAPTER_UNSUPPORTED');
-      assert.equal(err.status, 501);
-      return true;
-    });
-    await assert.rejects(() => adapter.killTree(1), (err) => err.code === 'ADAPTER_UNSUPPORTED');
+    await assert.rejects(
+      () => adapter.spawn({ scriptPath: 'x.bat', workDir: '.' }),
+      (err) => {
+        assert.equal(err.code, 'ADAPTER_UNSUPPORTED');
+        assert.equal(err.status, 501);
+        return true;
+      },
+    );
+    await assert.rejects(
+      () => adapter.killTree(1),
+      (err) => err.code === 'ADAPTER_UNSUPPORTED',
+    );
     assert.equal(adapter.isAlive(1), false);
   }
 });
@@ -62,7 +68,10 @@ test('bootstrap：装配 store / procManager / app，数据目录自动建立，
   assert.equal(runtime.store.count(), 0);
   assert.equal(runtime.procManager.platform, process.platform);
   assert.equal(typeof runtime.app.listen, 'function', 'app 应是 express 实例');
-  assert.ok(logged.some((line) => line.includes('已回退默认值')), '非法环境变量应产生告警日志');
+  assert.ok(
+    logged.some((line) => line.includes('已回退默认值')),
+    '非法环境变量应产生告警日志',
+  );
 
   // 真起一次 HTTP，确认装配后可服务
   const server = runtime.app.listen(0, '127.0.0.1');

@@ -57,13 +57,15 @@ describe('App', () => {
   });
 
   it('顶部统计：服务总数与运行中数量', async () => {
-    setup(makeApi({
-      listServices: vi.fn(async () => ({
-        services: [service({ status: 'running' }), service({ id: 's2', name: '推理服务' })],
-        warnings: [],
-        poll: { logsMs: 1000, servicesMs: 1500 },
-      })),
-    }));
+    setup(
+      makeApi({
+        listServices: vi.fn(async () => ({
+          services: [service({ status: 'running' }), service({ id: 's2', name: '推理服务' })],
+          warnings: [],
+          poll: { logsMs: 1000, servicesMs: 1500 },
+        })),
+      }),
+    );
     await waitFor(() => expect(screen.getByText(/共 2 个服务/)).toBeTruthy());
     expect(screen.getByText(/运行中 1/)).toBeTruthy();
   });

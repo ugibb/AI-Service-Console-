@@ -27,9 +27,7 @@ export function StatusBadge({ status, exitCode = null, className = '' }) {
     <span className={classes.join(' ')} data-status={status}>
       <span className="status-badge__dot" aria-hidden="true" />
       <span className="status-badge__label">{meta.label}</span>
-      {exitCode === null || exitCode === undefined ? null : (
-        <span className="status-badge__exit">退出码 {exitCode}</span>
-      )}
+      {exitCode === null || exitCode === undefined ? null : <span className="status-badge__exit">退出码 {exitCode}</span>}
     </span>
   );
 }

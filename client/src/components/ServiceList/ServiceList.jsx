@@ -64,16 +64,15 @@ export function ServiceList({
             ))}
           </div>
           <p className="service-list__disclaimer">
-            状态可能不准确：控制台重启后无法接管此前已启动的进程，可能显示为「已停止」；
-            若与实际不符，请到任务管理器或用 taskkill 手动对齐。
+            状态可能不准确：控制台重启后无法接管此前已启动的进程，可能显示为「已停止」； 若与实际不符，请到任务管理器或用 taskkill
+            手动对齐。
           </p>
         </>
       ) : (
         <div className="service-list__empty">
           <p className="service-list__empty-title">还没有登记任何服务</p>
           <p className="service-list__empty-hint">
-            登记服务只需两样东西：启动脚本（.bat）的路径，和它自己写的日志文件路径。
-            登记后就不用再找目录、记命令了。
+            登记服务只需两样东西：启动脚本（.bat）的路径，和它自己写的日志文件路径。 登记后就不用再找目录、记命令了。
           </p>
           <button type="button" className="btn btn--primary" onClick={onCreate}>
             登记第一个服务

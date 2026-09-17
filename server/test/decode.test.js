@@ -88,7 +88,10 @@ test('splitLines：按 0x0A 切分并保留未成行的尾段', () => {
 
 test('splitLines 对 GBK 与 UTF-8 都成立（换行字节相同）', () => {
   const { lines } = splitLines(gbk('第一行\n第二行\n'));
-  assert.deepEqual(lines.map((b) => iconv.decode(b, 'gbk')), ['第一行', '第二行']);
+  assert.deepEqual(
+    lines.map((b) => iconv.decode(b, 'gbk')),
+    ['第一行', '第二行'],
+  );
 });
 
 test('stripCr / stripBom / countByte / countReplacements', () => {

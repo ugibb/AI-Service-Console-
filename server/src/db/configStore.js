@@ -136,9 +136,7 @@ export function createConfigStore({
         list = parsePayload(raw);
       } catch (err) {
         const backupPath = await backupCorruptFile(err.message);
-        warnings.push(
-          `配置文件损坏（${err.message}），已降级为空列表${backupPath ? `，原文件备份至 ${backupPath}` : ''}`,
-        );
+        warnings.push(`配置文件损坏（${err.message}），已降级为空列表${backupPath ? `，原文件备份至 ${backupPath}` : ''}`);
         logger.warn?.(warnings[warnings.length - 1]);
         loaded = true;
         return { services: [], warnings };

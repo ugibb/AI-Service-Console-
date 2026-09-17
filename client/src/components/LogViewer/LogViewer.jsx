@@ -6,10 +6,9 @@ const DEFAULT_TAIL = 500;
 
 /** 后端回的是 iconv 的编码名（utf8 / gbk），展示时用人类写法 */
 const ENCODING_LABELS = { utf8: 'UTF-8', gbk: 'GBK', utf16le: 'UTF-16LE' };
-const formatEncoding = (encoding) => (encoding ? ENCODING_LABELS[encoding.toLowerCase()] ?? encoding.toUpperCase() : '—');
+const formatEncoding = (encoding) => (encoding ? (ENCODING_LABELS[encoding.toLowerCase()] ?? encoding.toUpperCase()) : '—');
 
-const formatClock = (timestamp) =>
-  timestamp ? new Date(timestamp).toLocaleTimeString('zh-CN', { hour12: false }) : '—';
+const formatClock = (timestamp) => (timestamp ? new Date(timestamp).toLocaleTimeString('zh-CN', { hour12: false }) : '—');
 
 const formatSize = (bytes) => {
   if (bytes == null) return null;
@@ -29,10 +28,7 @@ export function LogViewer({ service, api, intervalMs = 1000, tail = DEFAULT_TAIL
   const [follow, setFollow] = useState(true);
   const bodyRef = useRef(null);
 
-  const { data, error, loading, lastUpdatedAt } = usePolling(
-    () => api.getLogs(service.id, { tail }),
-    { intervalMs },
-  );
+  const { data, error, loading, lastUpdatedAt } = usePolling(() => api.getLogs(service.id, { tail }), { intervalMs });
 
   const lines = useMemo(() => (Array.isArray(data?.lines) ? data.lines : []), [data]);
 
@@ -112,9 +108,7 @@ export function LogViewer({ service, api, intervalMs = 1000, tail = DEFAULT_TAIL
           跟随末尾
         </label>
 
-        {data?.truncatedLines > 0 ? (
-          <span className="log-viewer__truncated">{data.truncatedLines} 行过长已截断</span>
-        ) : null}
+        {data?.truncatedLines > 0 ? <span className="log-viewer__truncated">{data.truncatedLines} 行过长已截断</span> : null}
       </div>
 
       {error ? (

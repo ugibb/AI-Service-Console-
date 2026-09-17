@@ -153,6 +153,11 @@ export function createServicesStore({ api }) {
 
   return {
     getState,
+    /**
+     * 给 useSyncExternalStore 用的**稳定快照**：state 只在 commit 时换新对象，
+     * 未变更期间引用恒定（getState 每次返回防御性副本，引用不稳定，不能直接给它用）。
+     */
+    getSnapshot: () => state,
     subscribe,
     load,
     refresh: load,

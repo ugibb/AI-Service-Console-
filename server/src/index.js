@@ -76,8 +76,7 @@ async function main() {
   server.on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
       logger.error(
-        `端口 ${defaultConfig.port} 已被占用，控制台无法启动。` +
-          `请关掉占用该端口的程序，或设置环境变量 LSC_PORT 换一个端口后重试。`,
+        `端口 ${defaultConfig.port} 已被占用，控制台无法启动。` + `请关掉占用该端口的程序，或设置环境变量 LSC_PORT 换一个端口后重试。`,
       );
     } else if (err.code === 'EACCES') {
       logger.error(`没有权限绑定 ${defaultConfig.host}:${defaultConfig.port}：${err.message}`);
@@ -98,8 +97,7 @@ async function main() {
   process.on('SIGTERM', () => shutdown('SIGTERM'));
 }
 
-const invokedDirectly =
-  process.argv[1] !== undefined && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
+const invokedDirectly = process.argv[1] !== undefined && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
 
 if (invokedDirectly) {
   main();

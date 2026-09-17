@@ -1,17 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 
 /**
  * 把 store 订阅成 React state。
- * 刻意不用 useSyncExternalStore：store.getState() 返回防御性副本（每次新对象），
- * 用它做 snapshot 会导致无限重渲染。订阅回调直接拿到内部不可变状态，天然稳定。
+ *
+ * 用 store 的**稳定快照**（getSnapshot 返回内部 state 引用，仅在 commit 时换新）
+ * 交给 useSyncExternalStore —— 这是「订阅外部数据源」的官方 API：
+ * 既拿到了 store 变更通知，也在 store 身份变化时自动重新订阅、重新取快照。
+ *
+ * 注意不能用 store.getState：它每次返回防御性副本（新对象），引用永不相等，
+ * 放进 useSyncExternalStore 会触发无限重渲染。
  */
 export function useStoreState(store) {
-  const [state, setState] = useState(() => store.getState());
-
-  useEffect(() => {
-    setState(store.getState());
-    return store.subscribe((next) => setState(next));
-  }, [store]);
-
-  return state;
+  return useSyncExternalStore(store.subscribe, store.getSnapshot);
 }

@@ -84,9 +84,12 @@ describe('servicesStore', () => {
   it('start：pending 标记执行中 → 完成后清除，并把服务端返回的最新状态合并进列表', async () => {
     let release;
     const api = makeApi({
-      startService: vi.fn(() => new Promise((resolve) => {
-        release = () => resolve({ action: { name: 'start' }, service: service({ status: 'running', pid: 111 }) });
-      })),
+      startService: vi.fn(
+        () =>
+          new Promise((resolve) => {
+            release = () => resolve({ action: { name: 'start' }, service: service({ status: 'running', pid: 111 }) });
+          }),
+      ),
     });
     const store = createServicesStore({ api });
     await store.load();
@@ -139,7 +142,8 @@ describe('servicesStore', () => {
 
   it('remove：删除后本地列表同步移除', async () => {
     const api = makeApi({
-      listServices: vi.fn()
+      listServices: vi
+        .fn()
         .mockResolvedValueOnce({ services: [service(), service({ id: 's2' })], warnings: [], poll: { logsMs: 1000, servicesMs: 1500 } })
         .mockResolvedValue({ services: [service({ id: 's2' })], warnings: [], poll: { logsMs: 1000, servicesMs: 1500 } }),
     });

@@ -39,7 +39,7 @@ export function App({ api = FALLBACK_API, store, servicesPollMs = 1500, logsPoll
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [failedKey, servicesStore]);
 
-  const selected = selectedId ? state.services.find((item) => item.id === selectedId) ?? null : null;
+  const selected = selectedId ? (state.services.find((item) => item.id === selectedId) ?? null) : null;
 
   const handleSubmit = useCallback(
     async (values) => {
@@ -137,8 +137,7 @@ export function App({ api = FALLBACK_API, store, servicesPollMs = 1500, logsPoll
             <div className="app__placeholder">
               <p className="app__placeholder-title">选择左侧任意服务</p>
               <p className="app__placeholder-hint">
-                点「看日志」查看它自己写的日志文件（每秒刷新），点「启动 / 停止 / 重启」直接操作进程，
-                不必再 RDP 找目录、回忆命令。
+                点「看日志」查看它自己写的日志文件（每秒刷新），点「启动 / 停止 / 重启」直接操作进程， 不必再 RDP 找目录、回忆命令。
               </p>
             </div>
           )}
