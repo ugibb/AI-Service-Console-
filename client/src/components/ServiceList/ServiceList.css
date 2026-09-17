@@ -1,0 +1,94 @@
+.service-list {
+  display: grid;
+  gap: var(--space-4);
+  align-content: start;
+  min-width: 0;
+}
+
+.service-list__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-line);
+}
+
+.service-list__title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-text-faint);
+}
+
+.service-list__count {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  letter-spacing: 0;
+  color: var(--color-accent);
+}
+
+.service-list__items {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.service-list__warnings {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-3);
+  list-style: none;
+  border: 1px solid color-mix(in oklch, var(--color-busy) 45%, transparent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklch, var(--color-busy) 10%, transparent);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+}
+
+.service-list__loading {
+  margin: 0;
+  padding: var(--space-6) 0;
+  color: var(--color-text-faint);
+  font-size: var(--text-sm);
+  text-align: center;
+}
+
+.service-list__disclaimer {
+  margin: 0;
+  padding: var(--space-2) 0 var(--space-1);
+  color: var(--color-text-faint);
+  font-size: var(--text-xs);
+  line-height: 1.6;
+}
+
+.service-list__empty {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+  padding: var(--space-6);
+  border: 1px dashed var(--color-line-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+}
+
+.service-list__empty-title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--color-text-strong);
+}
+
+.service-list__empty-hint {
+  margin: 0;
+  max-width: 42ch;
+  color: var(--color-text-soft);
+  font-size: var(--text-sm);
+  line-height: 1.7;
+}
