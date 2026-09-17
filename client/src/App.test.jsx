@@ -117,6 +117,29 @@ describe('App', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
+  it('表单提交失败：保留表单并就地展示后端错误（不静默关闭、不丢用户输入）', async () => {
+    const user = userEvent.setup();
+    const api = makeApi();
+    api.createService = vi
+      .fn()
+      .mockRejectedValue(Object.assign(new Error('启动脚本不能包含 " & | < > ^ 等 cmd 特殊字符'), { code: 'VALIDATION_FAILED' }));
+    setup(api);
+    await waitFor(() => expect(screen.getByText('订单服务')).toBeTruthy());
+
+    await user.click(screen.getByRole('button', { name: '新增服务' }));
+    await user.type(screen.getByLabelText('名称'), '新服务');
+    await user.type(screen.getByLabelText('工作目录'), 'C:\\new');
+    await user.type(screen.getByLabelText('启动脚本'), 'C:\\new\\start.bat');
+    await user.type(screen.getByLabelText('日志文件'), 'C:\\new\\app.log');
+    await user.click(screen.getByRole('button', { name: '保存' }));
+
+    // 表单不关闭，错误挂在表单里（不是只在顶部横幅一闪而过）
+    await waitFor(() => expect(document.querySelector('.service-form__error')).toBeTruthy());
+    expect(document.querySelector('.service-form__error').textContent).toContain('cmd 特殊字符');
+    expect(screen.getByRole('heading', { name: '新增服务' })).toBeTruthy();
+    expect(screen.getByLabelText('名称').value).toBe('新服务');
+  });
+
   it('编辑：点「编辑」打开带预填值的表单，保存走 updateService', async () => {
     const user = userEvent.setup();
     const { api } = setup();
