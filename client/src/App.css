@@ -90,16 +90,18 @@
   color: var(--color-text-strong);
 }
 
-/* 上下结构：日志在上、服务卡片在下。行高用 minmax 而不是 1fr——1fr 在矮窗口下
-   会被压到没高度，日志区留个下限才谈得上「方便查看」。
-   下限取 min(20rem, 38vh) 而不是死板的 20rem：固定 20rem 时，窗口一矮（≤700px 高）
-   日志行就顶不动了，头部 + 卡片行 + 日志下限的合计超过一屏，整页开始滚——
-   「一页展示」就破了。挂到 vh 上，矮窗口里下限自己跟着缩，一页始终装得下。 */
+/* 上下结构：日志在上、服务卡片在下。
+   日志行给一个「比剩余空间还大一点」的下限，主动换掉底部服务列表的整屏可见性：
+   服务卡片行约 203px 高、又舍不得压，那就让日志行按 100vh - 180px 撑开——
+   180 是头部 + 页边距 + 行间距 + 卡片行的合计（实测 280px）减去允许滚动的 100px，
+   减出来的那 100px 就是页面往下滚的距离（用户认可的上限）。滚 100px 换日志区多 100px。
+   上限 cap 在 42rem：窗口够高时日志本来就宽裕，不必再为它多滚一屏。
+   （之所以不是固定的 20rem 下限：那样矮窗口里下限反而会顶破一页，见上文 flex 说明。） */
 .app__main {
   /* 作为 flex 子项吃掉页面上剩下的全部高度（min-height:0 才能被压缩，否则内容会把它顶破） */
   flex: 1 1 auto;
   display: grid;
-  grid-template-rows: minmax(min(20rem, 38vh), 1fr) auto;
+  grid-template-rows: minmax(min(42rem, calc(100vh - 180px)), 1fr) auto;
   gap: var(--space-4);
   min-height: 0;
 }
@@ -155,6 +157,6 @@
 /* 窄屏（笔记本 / 分屏）：日志区下限收紧，把高度让给下面的卡片行 */
 @media (width < 960px) {
   .app__main {
-    grid-template-rows: minmax(min(14rem, 32vh), 1fr) auto;
+    grid-template-rows: minmax(min(34rem, calc(100vh - 180px)), 1fr) auto;
   }
 }

@@ -1,14 +1,10 @@
-/* 横向单行：名称 / 状态 → 目录 / 端口 / PID → 操作按钮，一屏高度只占一行（约 36px，
-   原来是纵向堆叠的 127px——这一百来像素全给了上面的日志区）。
-   发生异常时 statusMessage 与诊断输出各占满一整行（flex-basis:100%）把卡片撑高，
-   正常情况下它们不渲染，也就没有这一行。 */
 .service-card {
   position: relative;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-3);
-  padding: var(--space-1) var(--space-3);
+  display: grid;
+  /* 间距与内边距都收紧一档：卡片高度直接吃掉日志区的高度，而日志才是主任务。
+     实测改版前单卡 217px、卡片行 332px，占 900px 视口的 37%。 */
+  gap: var(--space-2);
+  padding: var(--space-3);
   border: 1px solid var(--color-line);
   border-left: 3px solid var(--color-line-strong);
   border-radius: var(--radius-md);
@@ -38,14 +34,11 @@
   box-shadow: 0 0 16px var(--color-accent-glow);
 }
 
-/* 名称与徽标紧挨着排在行首。宽了不抢，窄了先自己让步（0 1 auto）——
-   让位的顺序是：目录先截断，然后是名称截断，按钮最后一个也不缩。 */
 .service-card__head {
-  flex: 0 1 auto;
   display: flex;
   align-items: baseline;
-  gap: var(--space-2);
-  min-width: 0;
+  justify-content: space-between;
+  gap: var(--space-3);
 }
 
 .service-card__name {
@@ -101,14 +94,9 @@
   color: var(--color-text-soft);
 }
 
-/* 元信息吃掉行内剩余宽度（flex-basis:0）：目录长短不影响卡片宽度，
-   宽出来的部分全归它，窄下去也先从它开始截。 */
 .service-card__meta {
-  flex: 1 1 0;
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-3);
-  min-width: 0;
+  display: grid;
+  gap: 2px;
   margin: 0;
   font-size: var(--text-sm);
 }
@@ -118,15 +106,6 @@
   gap: var(--space-2);
   align-items: baseline;
   min-width: 0;
-}
-
-/* 目录可伸可缩（唯一会截断的一项），端口/PID 定长不缩 */
-.service-card__meta-row:first-child {
-  flex: 1 1 auto;
-}
-
-.service-card__meta-row:not(:first-child) {
-  flex: none;
 }
 
 .service-card__meta-row dt {
@@ -156,10 +135,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* 异常信息与诊断各占满一整行：横向布局里它们属于「补充说明」，
-   跟名称/按钮挤在同一行只会把那一行撑高、谁都不好读。 */
 .service-card__message {
-  flex: 1 1 100%;
   margin: 0;
   padding: var(--space-2) var(--space-3);
   border-left: 2px solid var(--color-danger);
@@ -170,7 +146,6 @@
 }
 
 .service-card__diag {
-  flex: 1 1 100%;
   border: 1px solid var(--color-line);
   border-radius: var(--radius-sm);
   background: var(--color-surface-sunken);
@@ -198,9 +173,7 @@
   word-break: break-all;
 }
 
-/* 操作按钮整组不缩（flex: none）：宁可截名称也不把按钮压成两行 */
 .service-card__actions {
-  flex: none;
   display: flex;
   flex-wrap: wrap;
   align-items: center;

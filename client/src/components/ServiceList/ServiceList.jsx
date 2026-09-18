@@ -31,9 +31,6 @@ export function ServiceList({
 
   return (
     <section className="service-list" aria-label="服务列表">
-      {/* 统计、卡片、新增按钮挤在同一行：这整块的高度是从日志区借的，
-          分两行（原来统计一行、卡片一行）等于白送一行高度给空白。
-          h2 与「新增服务」永远在场，卡片横向排在中间、超出就左右滑动。 */}
       <div className="service-list__bar">
         <h2 className="service-list__title">
           纳管服务
@@ -43,26 +40,6 @@ export function ServiceList({
           <span className="service-list__count">{runningCount}</span>
           <span className="service-list__count-text">个</span>
         </h2>
-
-        {hasServices ? (
-          <div className="service-list__items">
-            {services.map((service) => (
-              <ServiceCard
-                key={service.id}
-                service={service}
-                busy={pending[service.id] ?? null}
-                active={service.id === activeId}
-                onStart={onStart}
-                onStop={onStop}
-                onRestart={onRestart}
-                onEdit={onEdit}
-                onDelete={onDelete}
-                onOpenLogs={onOpenLogs}
-              />
-            ))}
-          </div>
-        ) : null}
-
         <button type="button" className="btn btn--primary" onClick={onCreate}>
           新增服务
         </button>
@@ -78,7 +55,24 @@ export function ServiceList({
 
       {!loaded ? (
         <p className="service-list__loading">正在读取服务配置…</p>
-      ) : hasServices ? null : (
+      ) : hasServices ? (
+        <div className="service-list__items">
+          {services.map((service) => (
+            <ServiceCard
+              key={service.id}
+              service={service}
+              busy={pending[service.id] ?? null}
+              active={service.id === activeId}
+              onStart={onStart}
+              onStop={onStop}
+              onRestart={onRestart}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onOpenLogs={onOpenLogs}
+            />
+          ))}
+        </div>
+      ) : (
         <div className="service-list__empty">
           <p className="service-list__empty-title">还没有登记任何服务</p>
           <p className="service-list__empty-hint">

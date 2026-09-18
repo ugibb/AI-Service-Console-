@@ -1,24 +1,20 @@
 .service-list {
   display: grid;
-  /* 列表头与卡片行之间的空档收窄：这一行整体高度就是从日志区借的 */
-  gap: var(--space-1);
+  gap: var(--space-4);
   align-content: start;
   min-width: 0;
 }
 
-/* 整条服务栏只有一行高：左边统计、中间卡片、右边「新增服务」。
-   行高由卡片（约 36px）与按钮（约 28px）里最高的那个决定。 */
 .service-list__bar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: var(--space-3);
-  min-width: 0;
-  padding-bottom: var(--space-1);
+  padding-bottom: var(--space-3);
   border-bottom: 1px solid var(--color-line);
 }
 
 .service-list__title {
-  flex: none;
   display: flex;
   align-items: baseline;
   gap: var(--space-2);
@@ -39,27 +35,25 @@
 }
 
 /* 卡片横向从左到右排，超出容器就左右滑动——不再换行堆高去挤上面的日志区。
-   flex:1 吃掉统计与按钮之间的空档；min-width:0 是必须的，缺了它这一项的自动最小
-   尺寸会被卡片内容撑开，结果是整条服务栏横向撑破，而不是这里自己滚。 */
+   min-width:0 是必须的：.service-list 是 grid，缺了它这一项的自动最小尺寸会被
+   卡片内容撑开，结果是整页横向溢出，而不是本行内部滚动。 */
 .service-list__items {
-  flex: 1 1 auto;
   display: flex;
   align-items: stretch;
-  gap: var(--space-2);
+  gap: var(--space-3);
   min-width: 0;
   overflow-x: auto;
   overscroll-behavior-x: contain;
-  padding-bottom: var(--space-1);
+  padding-bottom: var(--space-2);
   scrollbar-width: thin;
   scrollbar-color: var(--color-line-strong) transparent;
 }
 
 /* 卡片定宽：不定宽的话 flex 会按内容把每张卡压成不同宽度的窄条，行看起来很碎。
-   横向单行布局比纵向卡片需要更多宽度（名称 + 目录 + 端口 + 五个按钮要并排放下），
-   所以这里比原来的 16–23rem 宽一档；窄屏自动收窄，目录跟着截短。 */
+   clamp 让它在窄屏自动收窄，宽屏也不至于宽到一行只放得下一张。 */
 .service-list__items > .service-card {
   flex: 0 0 auto;
-  width: clamp(22rem, 34vw, 30rem);
+  width: clamp(16rem, 24vw, 23rem);
   min-width: 0;
 }
 
