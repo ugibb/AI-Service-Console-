@@ -84,7 +84,7 @@ describe('ServiceForm', () => {
     }
   });
 
-  it('端口留空 → port 为 null（仅记录展示，非必填）', async () => {
+  it('端口留空 → port 为 null（选填，不影响启动）', async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
     render(<ServiceForm onSubmit={onSubmit} onCancel={() => {}} />);

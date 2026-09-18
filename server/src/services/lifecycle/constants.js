@@ -12,6 +12,8 @@ export const PROC_STATES = Object.freeze({
   STOPPING: 'stopping',
   ERROR: 'error',
   START_FAILED: 'start_failed',
+  /** 控制台重启后接管了「重启前由本控制台启动、且仍在运行」的进程（见 adopt.js） */
+  ADOPTED: 'adopted',
 });
 
 /** 启动失败原因码（对前端/报告可见，便于诊断） */
@@ -24,11 +26,26 @@ export const FAILURE_REASONS = Object.freeze({
   EXITED_EARLY_NONZERO: 'exited_early_nonzero',
   PID_VANISHED: 'pid_vanished',
   KILL_FAILED: 'kill_failed',
+  /** 启动前清理失败：旧进程/端口占用者杀不掉，宁可不起也不能起出第二个实例 */
+  PRESTART_CLEANUP_FAILED: 'prestart_cleanup_failed',
 });
 
-/** 停止/启动过程中可以被再次点击的状态 */
-export const BUSY_STATES = [PROC_STATES.STARTING, PROC_STATES.RUNNING, PROC_STATES.STOPPING];
-export const RUNNING_STATES = [PROC_STATES.RUNNING, PROC_STATES.STARTING];
+/**
+ * 占用着资源（活着的 pid）的状态：编辑/删除必须先停（routes/services.js 的 409 守卫）。
+ * adopted 与 running 同义——区别只在「进程是上个控制台会话启动的」，一样占着端口、
+ * 一样必须能被停止，编辑/删除的防线不能少。
+ */
+export const BUSY_STATES = [PROC_STATES.STARTING, PROC_STATES.RUNNING, PROC_STATES.STOPPING, PROC_STATES.ADOPTED];
+/**
+ * 可以执行停止流程的状态（stop.js 的守卫）。adopted 的进程不是当前进程的子进程、
+ * 没有 exit 事件，但 killTree(taskkill /T) 与 isAlive 都不要求父子关系，照杀照探。
+ */
+export const RUNNING_STATES = [PROC_STATES.RUNNING, PROC_STATES.STARTING, PROC_STATES.ADOPTED];
+/**
+ * 启动不可打断的过渡态：点「启动」时正在 starting/stopping，只能等它走完
+ * （running/adopted 则不同——「启动」的语义就是先停再起，见 start.js）。
+ */
+export const TRANSIENT_STATES = [PROC_STATES.STARTING, PROC_STATES.STOPPING];
 
 export const NONBLOCKING_HINT =
   '这通常是「启动即退出」型 .bat（脚本内部用 start 拉起后台进程后自身退出），' +

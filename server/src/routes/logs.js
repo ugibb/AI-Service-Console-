@@ -5,13 +5,15 @@
  *
  * 关键点：
  * - 每次请求都重新 tail 文件尾部（全量 tail）→ 文件被轮转 / 截断都天然免疫（PRD §8.2）。
+ * - 目标文件每次请求重新解析：logFile 里的 {date} 展开为当天，当天文件不存在时
+ *   往前逐天回退（见 paths.js 的 resolveLogPath），跨夜常驻的进程也能读到。
  * - 文件不存在 / 是目录 / 无权限 → 仍然返回 HTTP 200，用 available=false + kind + message
  *   表达降级状态（这不是请求错误，而是「服务还没写日志」的正常情况），前端据此显示引导文案。
  */
 import { Router } from 'express';
 import { serviceNotFound } from '../lib/errors.js';
 import { tailFile } from '../logs/logTail.js';
-import { resolveServicePaths } from '../services/paths.js';
+import { resolveLogPath } from '../services/paths.js';
 import { sendOk } from './respond.js';
 
 const DEGRADED_MESSAGES = Object.freeze({
@@ -36,9 +38,10 @@ export function createLogsRouter({ store, config }) {
     const service = store.get(req.params.id);
     if (!service) throw serviceNotFound(req.params.id);
 
-    const paths = resolveServicePaths(service);
+    // logFile 带 {date} 时这里会做「当天不存在就往前找」的回退，所以是异步的
+    const logPath = await resolveLogPath(service);
     const tail = parseTail(req.query.tail);
-    const result = await tailFile(paths.logPath, {
+    const result = await tailFile(logPath, {
       lines: tail,
       chunkSize: config.log.chunkSize,
       maxLineBytes: config.log.maxLineBytes,
@@ -48,7 +51,7 @@ export function createLogsRouter({ store, config }) {
     if (!result.ok) {
       sendOk(res, {
         serviceId: service.id,
-        path: paths.logPath,
+        path: logPath,
         tail,
         available: false,
         kind: result.kind,
@@ -68,7 +71,7 @@ export function createLogsRouter({ store, config }) {
 
     sendOk(res, {
       serviceId: service.id,
-      path: paths.logPath,
+      path: logPath,
       tail,
       available: true,
       kind: null,

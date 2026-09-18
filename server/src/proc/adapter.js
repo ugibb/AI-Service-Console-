@@ -16,6 +16,10 @@
  *   killTree(pid, { force }) => Promise<{ ok, notFound?, message? }>
  *     - notFound = true 表示进程已不存在（幂等场景，不算错误）
  *   isAlive(pid) => boolean
+ *   listProcesses() => Promise<Map<pid, { pid, ppid, name, creationDate }>>
+ *     - OS 进程快照（接管身份校验 / 启动前清理用）。拿不到时返回空表，不抛错。
+ *   portOwners(port) => Promise<number[]>
+ *     - 监听该端口的 pid 集合。查询失败返回空数组，不抛错。
  */
 import { AppError, ERROR_CODES } from '../lib/errors.js';
 
@@ -37,5 +41,13 @@ export function createUnsupportedAdapter({ platform = process.platform } = {}) {
       reject();
     },
     isAlive: () => false,
+    // 探测类方法不报错而给空结果：调用它们的接管/清理流程只在支持启停的平台上真的做事，
+    // 这两个桩存在的意义只是让对象形状与契约一致
+    async listProcesses() {
+      return new Map();
+    },
+    async portOwners() {
+      return [];
+    },
   };
 }

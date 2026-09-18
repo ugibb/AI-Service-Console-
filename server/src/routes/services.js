@@ -38,8 +38,8 @@ export function createServicesRouter({ store, procManager, config }) {
     const existing = store.get(req.params.id);
     if (!existing) throw serviceNotFound(req.params.id);
     if (procManager.isBusy(existing.id)) {
-      // 运行中改名/改路径会让「停止」指向错误的目标，先拒绝，让用户显式停止
-      throw new AppError(ERROR_CODES.CONFLICT, '服务正在启动/运行/停止中，请先停止服务再修改配置', {
+      // 运行中（含已接管）改名/改路径会让「停止」指向错误的目标，先拒绝，让用户显式停止
+      throw new AppError(ERROR_CODES.CONFLICT, '服务正在启动/运行/已接管/停止中，请先停止服务再修改配置', {
         status: 409,
         details: { id: existing.id },
       });
@@ -53,7 +53,7 @@ export function createServicesRouter({ store, procManager, config }) {
     if (!existing) throw serviceNotFound(req.params.id);
     if (procManager.isBusy(existing.id)) {
       // 删掉配置 = 丢掉唯一能停止它的 PID 记录，必然留下孤儿进程 → 显式拒绝
-      throw new AppError(ERROR_CODES.CONFLICT, '服务正在启动/运行/停止中，请先停止服务再删除', {
+      throw new AppError(ERROR_CODES.CONFLICT, '服务正在启动/运行/已接管/停止中，请先停止服务再删除', {
         status: 409,
         details: { id: existing.id },
       });

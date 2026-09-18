@@ -43,10 +43,29 @@ describe('ServiceList', () => {
     expect(screen.getByText('推理服务')).toBeTruthy();
   });
 
-  it('始终显示「状态可能不准确」提示（PRD §9 控制台重启/孤儿进程边界）', () => {
+  it('统计条算出「运行中」数量（adopted 算在跑，starting 不算）', () => {
+    render(
+      <ServiceList
+        services={[
+          service({ status: 'running' }),
+          service({ id: 's2', status: 'adopted' }),
+          service({ id: 's3', status: 'starting' }),
+          service({ id: 's4' }),
+        ]}
+        loaded
+        {...baseProps}
+      />,
+    );
+
+    // 这里曾经写的是 `services.runningCount`——services 是数组，取字段恒为 undefined，
+    // 渲染出来是「运行中 个」，中间那个数字永远是空的。断言整行文字钉住这个回归。
+    expect(screen.getByRole('heading', { level: 2 }).textContent).toContain('共4个服务，运行中2个');
+  });
+
+  it('不再显示「状态可能不准确」免责声明（真接管已取代该边界）', () => {
     render(<ServiceList services={[service()]} loaded {...baseProps} />);
-    expect(screen.getByText(/状态可能不准确/)).toBeTruthy();
-    expect(screen.getByText(/任务管理器|taskkill/)).toBeTruthy();
+    expect(screen.queryByText(/状态可能不准确/)).toBeNull();
+    expect(screen.queryByText(/taskkill/)).toBeNull();
   });
 
   it('配置加载告警会展示给用户（损坏 JSON 降级不能静默）', () => {

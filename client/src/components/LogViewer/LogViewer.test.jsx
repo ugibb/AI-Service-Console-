@@ -159,14 +159,6 @@ describe('LogViewer', () => {
     await waitFor(() => expect(screen.getByText(/2 行过长已截断/)).toBeTruthy());
   });
 
-  it('关闭按钮回调 onClose', async () => {
-    const user = userEvent.setup();
-    const onClose = vi.fn();
-    render(<LogViewer service={service} api={makeApi(payload())} intervalMs={1000} onClose={onClose} />);
-    await user.click(screen.getByRole('button', { name: '关闭日志' }));
-    expect(onClose).toHaveBeenCalled();
-  });
-
   describe('自动滚动开关（长日志里想往回翻的时候用）', () => {
     it('默认开启：新日志到达时视口自动滚到最底（原有 tail 行为不变）', async () => {
       const scrollSpy = vi.spyOn(Element.prototype, 'scrollTo');

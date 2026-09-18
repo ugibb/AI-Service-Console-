@@ -10,8 +10,13 @@ const BUSY_LABELS = Object.freeze({
   restart: '重启中…',
 });
 
-const STOPPABLE = ['running', 'starting'];
-const STARTABLE = ['stopped', 'error', 'start_failed'];
+/** 可停止 = 真在跑的（含接管的）+ 启动中（启动中允许取消，既有行为） */
+const STOPPABLE = ['running', 'starting', 'adopted'];
+/** 「启动」的语义是「确保只有一个实例在跑」：稳态下都可点——
+ *  stopped/error/start_failed 是常规启动；running/adopted 是先杀旧的再起新的（服务端保证）。
+ *  只有过渡态（starting/stopping）置灰：点了也是 SERVICE_BUSY。 */
+const TRANSIENT = ['starting', 'stopping'];
+const RESTARTABLE = ['running', 'adopted'];
 
 /**
  * 启动中已用时长。每秒走一次，让「启动中」看起来是在推进而不是卡死——
@@ -28,21 +33,47 @@ function StartingElapsed({ startedAt }) {
  *
  * 目标场景是「RDP 进来点一下」：状态和路径要一眼看到，
  * 按钮的可用性必须与当前状态严格对应（避免点了没反应的困惑）。
+ *
+ * 整张卡片就是「看日志」的入口 —— 日志是这台控制台的主任务，点卡片即切换，
+ * 因此不再单设「看日志」按钮（多一个按钮会把操作区挤成两行，卡片高出一截，
+ * 反而压缩了日志区）。名称做成真按钮，键盘和读屏仍有一条明确的可达路径；
+ * 卡片其余区域的可点只是给鼠标的快捷方式。
+ *
+ * 按钮区整体 stopPropagation：点「启动」不应该顺带把日志切走。
  */
 export function ServiceCard({ service, busy = null, active = false, onStart, onStop, onRestart, onEdit, onDelete, onOpenLogs }) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const status = service.status ?? 'stopped';
   const locked = Boolean(busy);
-  const canStart = STARTABLE.includes(status);
+  const canStart = !TRANSIENT.includes(status);
   const canStop = STOPPABLE.includes(status);
-  const canRestart = status === 'running';
+  const canRestart = RESTARTABLE.includes(status);
   const diagnostics = Array.isArray(service.startupDiagnostics) ? service.startupDiagnostics : [];
+  const showRunInfo = service.port != null || service.pid != null;
+
+  const openLogs = () => onOpenLogs(service.id);
 
   return (
-    <article className={`service-card${active ? ' service-card--active' : ''}`} aria-current={active ? 'true' : undefined}>
+    <article
+      className={`service-card${active ? ' service-card--active' : ''}`}
+      aria-current={active ? 'true' : undefined}
+      onClick={openLogs}
+    >
       <header className="service-card__head">
-        <h3 className="service-card__name">{service.name}</h3>
+        <h3 className="service-card__name">
+          <button
+            type="button"
+            className="service-card__name-btn"
+            title="查看日志"
+            onClick={(event) => {
+              event.stopPropagation();
+              openLogs();
+            }}
+          >
+            {service.name}
+          </button>
+        </h3>
         <div className="service-card__status">
           <StatusBadge status={status} exitCode={service.exitCode} />
           {status === 'starting' && service.startedAt ? <StartingElapsed startedAt={service.startedAt} /> : null}
@@ -56,30 +87,37 @@ export function ServiceCard({ service, busy = null, active = false, onStart, onS
             {service.workDir}
           </dd>
         </div>
-        {service.port == null ? null : (
+        {/* 端口与 PID 并成一行：两者都只是「一眼扫过」的信息，各占一行白白拉高卡片 */}
+        {showRunInfo ? (
           <div className="service-card__meta-row">
-            <dt>端口</dt>
-            <dd className="service-card__mono">{service.port}</dd>
+            {service.port == null ? null : (
+              <>
+                <dt>端口</dt>
+                <dd className="service-card__mono">{service.port}</dd>
+              </>
+            )}
+            {service.pid == null ? null : (
+              <>
+                <dt>PID</dt>
+                <dd className="service-card__mono">{service.pid}</dd>
+              </>
+            )}
           </div>
-        )}
-        {service.pid == null ? null : (
-          <div className="service-card__meta-row">
-            <dt>PID</dt>
-            <dd className="service-card__mono">{service.pid}</dd>
-          </div>
-        )}
+        ) : null}
       </dl>
 
       {service.statusMessage ? <p className="service-card__message">{service.statusMessage}</p> : null}
 
+      {/* 默认折叠：失败原因在上面的 statusMessage 里已经给了，原始输出按需展开即可，
+          常驻展开会把卡片顶高一两百像素（max-height 14rem） */}
       {diagnostics.length > 0 ? (
-        <details className="service-card__diag" open>
+        <details className="service-card__diag">
           <summary>启动诊断输出（{diagnostics.length} 行）</summary>
           <pre>{diagnostics.join('\n')}</pre>
         </details>
       ) : null}
 
-      <div className="service-card__actions">
+      <div className="service-card__actions" onClick={(event) => event.stopPropagation()}>
         {confirmingDelete ? (
           <>
             <span className="service-card__confirm">确认删除该服务配置？</span>
@@ -102,9 +140,6 @@ export function ServiceCard({ service, busy = null, active = false, onStart, onS
               {busy === 'restart' ? BUSY_LABELS.restart : '重启'}
             </button>
             <span className="service-card__spacer" />
-            <button type="button" className="btn btn--quiet" onClick={() => onOpenLogs(service.id)}>
-              看日志
-            </button>
             <button type="button" className="btn btn--quiet" onClick={() => onEdit(service.id)}>
               编辑
             </button>

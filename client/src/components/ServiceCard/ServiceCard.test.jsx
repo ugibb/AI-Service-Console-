@@ -64,7 +64,7 @@ describe('ServiceCard', () => {
     expect(screen.getByRole('button', { name: '重启' }).disabled).toBe(true);
   });
 
-  it('运行中：可以停止与重启，启动禁用', () => {
+  it('运行中：三个按钮都可用（启动 = 服务端先杀旧的再起新的，确保单实例）', () => {
     render(
       <ServiceCard
         service={service({ status: 'running', pid: 1 })}
@@ -76,7 +76,26 @@ describe('ServiceCard', () => {
         onOpenLogs={noop}
       />,
     );
-    expect(screen.getByRole('button', { name: '启动' }).disabled).toBe(true);
+    expect(screen.getByRole('button', { name: '启动' }).disabled).toBe(false);
+    expect(screen.getByRole('button', { name: '停止' }).disabled).toBe(false);
+    expect(screen.getByRole('button', { name: '重启' }).disabled).toBe(false);
+  });
+
+  it('已接管：显示「已接管」徽标与 pid，停止/启动/重启都可用（与运行中同权）', () => {
+    render(
+      <ServiceCard
+        service={service({ status: 'adopted', pid: 26448, statusMessage: '控制台重启前已启动，已接管（pid=26448）' })}
+        onStart={noop}
+        onStop={noop}
+        onRestart={noop}
+        onEdit={noop}
+        onDelete={noop}
+        onOpenLogs={noop}
+      />,
+    );
+    expect(screen.getByText('已接管')).toBeTruthy();
+    expect(screen.getAllByText(/26448/).length).toBeGreaterThan(0); // pid 字段 + 接管消息里都有
+    expect(screen.getByRole('button', { name: '启动' }).disabled).toBe(false);
     expect(screen.getByRole('button', { name: '停止' }).disabled).toBe(false);
     expect(screen.getByRole('button', { name: '重启' }).disabled).toBe(false);
   });
@@ -176,7 +195,7 @@ describe('ServiceCard', () => {
     expect(screen.queryByText(/已启动/)).toBeNull();
   });
 
-  it('回调：启动 / 停止 / 重启 / 编辑 / 删除 / 看日志都带上服务 id', async () => {
+  it('回调：启动 / 停止 / 重启 / 编辑 都带上服务 id', async () => {
     const user = userEvent.setup();
     const handlers = {
       onStart: vi.fn(),
@@ -191,13 +210,78 @@ describe('ServiceCard', () => {
     await user.click(screen.getByRole('button', { name: '停止' }));
     await user.click(screen.getByRole('button', { name: '重启' }));
     await user.click(screen.getByRole('button', { name: '编辑' }));
-    await user.click(screen.getByRole('button', { name: '看日志' }));
 
     expect(handlers.onStop).toHaveBeenCalledWith('s1');
     expect(handlers.onRestart).toHaveBeenCalledWith('s1');
     expect(handlers.onEdit).toHaveBeenCalledWith('s1');
-    expect(handlers.onOpenLogs).toHaveBeenCalledWith('s1');
     expect(handlers.onStart).not.toHaveBeenCalled();
+  });
+
+  it('不再有「看日志」按钮（日志是默认视图，多一个按钮只会把操作区挤成两行）', () => {
+    render(
+      <ServiceCard service={service()} onStart={noop} onStop={noop} onRestart={noop} onEdit={noop} onDelete={noop} onOpenLogs={noop} />,
+    );
+    expect(screen.queryByRole('button', { name: '看日志' })).toBeNull();
+  });
+
+  it('点卡片空白处即切到该服务的日志（整卡是「看日志」的入口）', async () => {
+    const user = userEvent.setup();
+    const onOpenLogs = vi.fn();
+    render(
+      <ServiceCard
+        service={service()}
+        onStart={noop}
+        onStop={noop}
+        onRestart={noop}
+        onEdit={noop}
+        onDelete={noop}
+        onOpenLogs={onOpenLogs}
+      />,
+    );
+
+    await user.click(screen.getByText('C:\\services\\order'));
+    expect(onOpenLogs).toHaveBeenCalledWith('s1');
+  });
+
+  it('点服务名称也能切日志，且只触发一次（名称是真按钮，气泡不会重复计数）', async () => {
+    const user = userEvent.setup();
+    const onOpenLogs = vi.fn();
+    render(
+      <ServiceCard
+        service={service()}
+        onStart={noop}
+        onStop={noop}
+        onRestart={noop}
+        onEdit={noop}
+        onDelete={noop}
+        onOpenLogs={onOpenLogs}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: '订单服务' }));
+    expect(onOpenLogs).toHaveBeenCalledTimes(1);
+    expect(onOpenLogs).toHaveBeenCalledWith('s1');
+  });
+
+  it('点操作按钮不会顺带把日志切走（按钮区 stopPropagation）', async () => {
+    const user = userEvent.setup();
+    const onOpenLogs = vi.fn();
+    const onStop = vi.fn();
+    render(
+      <ServiceCard
+        service={service({ status: 'running', pid: 9 })}
+        onStart={noop}
+        onStop={onStop}
+        onRestart={noop}
+        onEdit={noop}
+        onDelete={noop}
+        onOpenLogs={onOpenLogs}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: '停止' }));
+    expect(onStop).toHaveBeenCalledWith('s1');
+    expect(onOpenLogs).not.toHaveBeenCalled();
   });
 
   it('删除需要二次确认（防误删配置）', async () => {

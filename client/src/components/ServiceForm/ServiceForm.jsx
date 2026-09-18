@@ -11,8 +11,19 @@ const FIELDS = Object.freeze([
   { key: 'name', label: '名称', hint: '显示用，例如「订单服务」', placeholder: '订单服务' },
   { key: 'workDir', label: '工作目录', hint: '启动脚本将在此目录下执行', placeholder: 'C:\\services\\order' },
   { key: 'startScript', label: '启动脚本', hint: '要执行的 .bat 文件；建议填绝对路径', placeholder: 'C:\\services\\order\\start.bat' },
-  { key: 'logFile', label: '日志文件', hint: '服务自己写的日志文件；控制台只读它', placeholder: 'C:\\services\\order\\logs\\app.log' },
-  { key: 'port', label: '端口', hint: '选填，仅记录展示，不用于探活', placeholder: '8081', numeric: true },
+  {
+    key: 'logFile',
+    label: '日志文件',
+    hint: '服务自己写的日志文件；控制台只读它。文件名按天变的服务，用 {date} 代替日期，例如 D:\\svc\\logs\\{date}.log（每次读取时展开成当天，不用天天改配置）',
+    placeholder: 'C:\\services\\order\\logs\\app.log',
+  },
+  {
+    key: 'port',
+    label: '端口',
+    hint: '选填。填写后每次启动前会自动结束占用该端口的进程，确保系统里只有一个实例在跑',
+    placeholder: '8081',
+    numeric: true,
+  },
   {
     key: 'startupGraceMs',
     label: '启动宽限期',

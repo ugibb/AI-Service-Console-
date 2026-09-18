@@ -13,7 +13,18 @@ import react from 'eslint-plugin-react';
 import reactHooks from 'eslint-plugin-react-hooks';
 import prettier from 'eslint-config-prettier';
 
-const IGNORES = ['**/node_modules/**', '**/dist/**', '**/coverage/**', '**/playwright-report/**', '**/test-results/**', 'data/**'];
+const IGNORES = [
+  '**/node_modules/**',
+  '**/dist/**',
+  '**/coverage/**',
+  '**/playwright-report/**',
+  '**/test-results/**',
+  'data/**',
+  // 桌面版打包产物：esbuild 生成的单文件后端，以及 electron-builder 的输出目录。
+  // 都是生成物，不该被 lint（里面的 eslint-disable 注释早已与实际规则脱节，会误报）。
+  'desktop/build/**',
+  'release/**',
+];
 
 /** 各段共用的语言选项与通用规则 */
 const common = {
@@ -38,7 +49,15 @@ export default [
   // ——— Node：后端、脚本、构建配置 ———
   {
     ...common,
-    files: ['server/**/*.js', 'scripts/**/*.mjs', '*.config.js', 'client/playwright.config.js', 'client/e2e/**/*.{js,mjs}'],
+    files: [
+      'server/**/*.js',
+      'scripts/**/*.mjs',
+      // 桌面版外壳与构建脚本。desktop/build 是 esbuild 产物，已在 IGNORES 里排除。
+      'desktop/**/*.{js,mjs}',
+      '*.config.js',
+      'client/playwright.config.js',
+      'client/e2e/**/*.{js,mjs}',
+    ],
     languageOptions: { ...common.languageOptions, globals: { ...globals.node } },
   },
 

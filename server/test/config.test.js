@@ -17,6 +17,25 @@ test('loadConfig：默认值符合 PRD（127.0.0.1:3010，tail 500，GBK 回退�
   assert.equal(cfg.poll.logsMs, 1000);
   assert.equal(cfg.poll.servicesMs, 1500);
   assert.equal(cfg.servicesFile, path.join(PROJECT_ROOT, 'data', 'services.json'));
+  assert.equal(cfg.consoleLogEnabled, true, '控制台日志默认落盘（桌面版没有控制台窗口）');
+  assert.equal(cfg.consoleLogFile, path.join(PROJECT_ROOT, 'data', 'logs', 'console.log'));
+  assert.equal(cfg.consoleLogMaxBytes, 2 * 1024 * 1024);
+  assert.equal(cfg.consoleLogMaxBackups, 3);
+  assert.deepEqual(cfg.warnings, []);
+});
+
+test('loadConfig：控制台日志可关停 / 改路径 / 调轮转参数', () => {
+  const cfg = loadConfig({
+    LSC_CONSOLE_LOG: '0',
+    LSC_CONSOLE_LOG_FILE: './elsewhere/console.log',
+    LSC_CONSOLE_LOG_MAX_BYTES: '4096',
+    LSC_CONSOLE_LOG_MAX_BACKUPS: '5',
+  });
+  assert.equal(cfg.consoleLogEnabled, false);
+  assert.ok(path.isAbsolute(cfg.consoleLogFile), '日志路径应被解析为绝对路径');
+  assert.ok(cfg.consoleLogFile.endsWith(`${path.sep}elsewhere${path.sep}console.log`));
+  assert.equal(cfg.consoleLogMaxBytes, 4096);
+  assert.equal(cfg.consoleLogMaxBackups, 5);
   assert.deepEqual(cfg.warnings, []);
 });
 

@@ -1,0 +1,36 @@
+# 桌面版打包配置（见 02-doc/02-design/030-desktop-packaging.md）
+#
+# 从**仓库根**执行（`npm run dist`），因为 app 目录就是仓库根：
+# 单仓 + npm workspaces 下，把 app 目录指到子目录会让 electron-builder 的依赖收集
+# 走进死胡同。这里把 `files` 显式列成白名单，只打进三样东西。
+#
+# 关键前提：后端已经被 esbuild 打成了单文件（desktop/build/server.bundle.mjs），
+# 所以**不需要往包里塞任何 node_modules**。这也是不配 `asarUnpack` 的原因。
+
+appId: com.lsc.ai-service-console
+productName: AI Service Console
+copyright: AI Service Console
+
+directories:
+  output: release
+
+# 白名单，不是黑名单：默认的 **/* 会把仓库里所有东西（含测试、文档、.git）都卷进来
+files:
+  - package.json
+  - desktop/main.js
+  - desktop/build/server.bundle.mjs
+  - client/dist/**
+
+# 打包产物里不需要 node_modules，保持 asar 精简
+npmRebuild: false
+
+asar: true
+
+win:
+  target:
+    - target: portable
+      arch:
+        - x64
+
+portable:
+  artifactName: AI-Service-Console-${version}-portable.exe

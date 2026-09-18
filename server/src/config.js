@@ -67,12 +67,35 @@ export function loadConfig(env = process.env) {
   const config = {
     port,
     host,
-    nodeEnv: env.NODE_ENV || 'development',
+    /**
+     * 默认 production——控制台不带参数启动时就是生产档（3010、托管 client/dist），见 profiles.js。
+     * 此前这里写 'development'，于是生产环境的 /api/health 也报 development，是句假话。
+     */
+    nodeEnv: env.NODE_ENV || 'production',
     adapter,
 
     dataDir,
     servicesFile: path.join(dataDir, 'services.json'),
     corruptBackupDir: path.join(dataDir, 'corrupt'),
+    /**
+     * 运行时进程档案（接管记录）。按**生效端口**分文件：dev 与 production 共用 data/
+     * 但端口不同（3010/3011），文件名带端口即隔离——开发档才不会认领生产档的服务
+     * （同端口的两个控制台本来就因 EADDRINUSE 起不来第二个）。
+     */
+    runtimeFile: path.join(dataDir, `runtime-${port}.json`),
+
+    /**
+     * 控制台自身日志落盘（桌面版必需：Electron 没有控制台窗口，stdout 进黑洞）。
+     * 纯 CLI 场景（start.bat）开着也无害，且 `LSC_CONSOLE_LOG=0` 可关掉。
+     */
+    consoleLogEnabled: env.LSC_CONSOLE_LOG !== '0',
+    consoleLogFile: path.resolve(env.LSC_CONSOLE_LOG_FILE?.trim() || path.join(dataDir, 'logs', 'console.log')),
+    consoleLogMaxBytes: readInt(env, 'LSC_CONSOLE_LOG_MAX_BYTES', 2 * 1024 * 1024, {
+      min: 4 * 1024,
+      max: 512 * 1024 * 1024,
+      warnings,
+    }),
+    consoleLogMaxBackups: readInt(env, 'LSC_CONSOLE_LOG_MAX_BACKUPS', 3, { min: 0, max: 50, warnings }),
 
     /** 生产模式托管前端构建产物 */
     clientDistDir: path.resolve(env.LSC_CLIENT_DIST?.trim() || path.join(PROJECT_ROOT, 'client', 'dist')),
@@ -114,6 +137,18 @@ export function loadConfig(env = process.env) {
       exitPollIntervalMs: readInt(env, 'LSC_EXIT_POLL_MS', 200, { min: 20, max: 5000, warnings }),
       /** 启动诊断环形缓冲行数（仅启动失败诊断用，不作实时日志） */
       diagBufferLines: readInt(env, 'LSC_DIAG_BUFFER_LINES', 200, { min: 10, max: 5000, warnings }),
+      /**
+       * 接管进程的存活轮询间隔：接管的进程不是子进程、没有 exit 事件，
+       * 只能低频问操作系统「还在吗」（见 lifecycle/adopt.js）。
+       */
+      adoptedPollIntervalMs: readInt(env, 'LSC_ADOPTED_POLL_MS', 5000, { min: 500, max: 60000, warnings }),
+      /**
+       * 接管档案的子树补记间隔：spawn 那一刻后代往往还没出生（`.bat` 要先跑 powershell、
+       * 延迟几秒、再拉 python），启动窗口内低频回看一眼，把新长出来的成员补进档案。
+       */
+      treeRefreshIntervalMs: readInt(env, 'LSC_TREE_REFRESH_MS', 1000, { min: 200, max: 60000, warnings }),
+      /** 子树补记的持续窗口：过了就停（后代已稳定，再扫 wmic 只是白烧 CPU） */
+      treeRefreshWindowMs: readInt(env, 'LSC_TREE_REFRESH_WINDOW_MS', 15000, { min: 500, max: 600000, warnings }),
     },
 
     /** 前端轮询间隔（由 /api/health 下发给前端，便于统一调整） */

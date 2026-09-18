@@ -57,20 +57,6 @@ describe('App', () => {
     expect(screen.getByRole('main')).toBeTruthy();
   });
 
-  it('顶部统计：服务总数与运行中数量', async () => {
-    setup(
-      makeApi({
-        listServices: vi.fn(async () => ({
-          services: [service({ status: 'running' }), service({ id: 's2', name: '推理服务' })],
-          warnings: [],
-          poll: { logsMs: 1000, servicesMs: 1500 },
-        })),
-      }),
-    );
-    await waitFor(() => expect(screen.getByText(/共 2 个服务/)).toBeTruthy());
-    expect(screen.getByText(/运行中 1/)).toBeTruthy();
-  });
-
   it('点「新增服务」打开表单，提交后调用 createService 并关闭表单', async () => {
     const user = userEvent.setup();
     const { api } = setup();
@@ -99,12 +85,12 @@ describe('App', () => {
     await waitFor(() => expect(screen.getByText('运行中')).toBeTruthy());
   });
 
-  it('点「看日志」切到详情日志视图，并按 1s 节奏拉取（此处用超大间隔只验证首拉）', async () => {
+  it('点卡片直接切到该服务的日志视图，并按 1s 节奏拉取（此处用超大间隔只验证首拉）', async () => {
     const user = userEvent.setup();
     const { api } = setup();
     await waitFor(() => expect(screen.getByText('订单服务')).toBeTruthy());
 
-    await user.click(screen.getByRole('button', { name: '看日志' }));
+    await user.click(screen.getByText('C:\\svc'));
     await waitFor(() => expect(api.getLogs).toHaveBeenCalledWith('s1', { tail: 500 }));
     await waitFor(() => expect(screen.getByText('hello-log-line')).toBeTruthy());
   });

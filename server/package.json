@@ -9,7 +9,7 @@
     "node": ">=20.19"
   },
   "scripts": {
-    "dev": "node --watch src/index.js",
+    "dev": "node --watch src/index.js --env=development",
     "start": "node src/index.js",
     "test": "node --test",
     "test:cov": "node --test --experimental-test-coverage"

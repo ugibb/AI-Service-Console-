@@ -1,20 +1,32 @@
+/* 整页是「头部 / 告警 / 主体」三段纵向排布。
+   用 flex 而不是 grid：告警是条件渲染的，grid 里那条空轨道照样吃掉一个 gap（实测 12px），
+   flex 只按实际渲染出来的子项算间距，没告警时就不付这笔钱。
+   高度必须「确定」（height:100%）：只有 min-height 时主体会退化成按内容撑高——
+   日志有 500 行，于是整块被撑到几千像素，卡片被顶出首屏。给了死高度，
+   .app__main 的 flex:1 才是「剩余空间」，日志才肯在自己内部滚。
+   overflow-y 只是兜底：内容实在放不下时整页滚，而不是把卡片裁掉。 */
 .app {
-  display: grid;
-  grid-template-rows: auto auto 1fr;
-  gap: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
   max-width: 1440px;
-  min-height: 100%;
+  height: 100%;
+  overflow-y: auto;
   margin: 0 auto;
-  padding: var(--space-5) var(--space-5) var(--space-6);
+  /* 页边距按「日志是主任务」定：能省下的每一像素都进日志区。
+     上下收到 8 / 12，左右留 12 让卡片不贴边。 */
+  padding: var(--space-2) var(--space-3) var(--space-3);
 }
 
 .app__header {
+  /* 在纵向 flex 里不参与压缩：内容放不下时只让主体让步，品牌行保持自己的高度 */
+  flex: none;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  padding-bottom: var(--space-4);
+  padding-bottom: var(--space-1);
   border-bottom: 1px solid var(--color-line);
 }
 
@@ -22,6 +34,16 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  min-width: 0;
+}
+
+/* 标题与副标题并成一行（原来上下两行，头部占 69px）。头部每省一行都是给日志正文的。
+   和 .log-viewer__ident 的「服务名 + 路径」同一套处理：baseline 对齐，字号差 12px 也不显得歪。 */
+.app__brand-text {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  min-width: 0;
 }
 
 .app__mark {
@@ -32,7 +54,9 @@
   box-shadow: 0 0 18px var(--color-accent-glow);
 }
 
+/* flex:none 不参与压缩，副标题吃掉剩余宽度、过长时自己省略号截断 */
 .app__title {
+  flex: none;
   margin: 0;
   font-family: var(--font-sans);
   font-size: var(--text-2xl);
@@ -42,37 +66,14 @@
 }
 
 .app__subtitle {
-  margin: 2px 0 0;
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--color-text-faint);
   font-size: var(--text-xs);
   letter-spacing: 0.04em;
-}
-
-.app__stats {
-  display: flex;
-  gap: var(--space-5);
-  margin: 0;
-}
-
-.app__stats div {
-  display: grid;
-  gap: 2px;
-  justify-items: end;
-}
-
-.app__stats dt {
-  font-size: var(--text-xs);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--color-text-faint);
-}
-
-.app__stats dd {
-  margin: 0;
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  font-variant-numeric: tabular-nums;
-  color: var(--color-text-strong);
 }
 
 .app__error {
@@ -89,11 +90,17 @@
   color: var(--color-text-strong);
 }
 
+/* 上下结构：日志在上、服务卡片在下。行高用 minmax 而不是 1fr——1fr 在矮窗口下
+   会被压到没高度，日志区留个下限才谈得上「方便查看」。
+   下限取 min(20rem, 38vh) 而不是死板的 20rem：固定 20rem 时，窗口一矮（≤700px 高）
+   日志行就顶不动了，头部 + 卡片行 + 日志下限的合计超过一屏，整页开始滚——
+   「一页展示」就破了。挂到 vh 上，矮窗口里下限自己跟着缩，一页始终装得下。 */
 .app__main {
+  /* 作为 flex 子项吃掉页面上剩下的全部高度（min-height:0 才能被压缩，否则内容会把它顶破） */
+  flex: 1 1 auto;
   display: grid;
-  grid-template-columns: minmax(22rem, 26rem) minmax(0, 1fr);
-  gap: var(--space-5);
-  align-items: start;
+  grid-template-rows: minmax(min(20rem, 38vh), 1fr) auto;
+  gap: var(--space-4);
   min-height: 0;
 }
 
@@ -101,9 +108,21 @@
   min-width: 0;
 }
 
+/* 日志区吃掉剩余高度。.log-viewer 内部自己滚动（body-wrap + overflow:auto），
+   外层只负责把高度传下去，页面整体不跟着日志一起变长。 */
 .app__column--detail {
   height: 100%;
-  min-height: 28rem;
+  min-height: 0;
+  /* 自己滚，别溢出到下方的卡片列上。
+     这一行的高度下限 20rem 是照日志定的，而新增/编辑表单实测高 660px——放不下时它会
+     溢出到服务列表上方，而列表列在 DOM 里靠后、画在上层，会直接挡住「保存」按钮
+     （浏览器 E2E 就是卡在这里点不动）。让详情列内部滚动，它就一直待在自己的格子里。 */
+  overflow-y: auto;
+}
+
+/* 卡片行贴底，高度由内容决定（卡片多时是横向滚动，不会把这行撑高） */
+.app__column--list {
+  align-self: end;
 }
 
 .app__placeholder {
@@ -111,7 +130,7 @@
   gap: var(--space-2);
   align-content: center;
   height: 100%;
-  min-height: 28rem;
+  min-height: 12rem;
   padding: var(--space-6);
   border: 1px dashed var(--color-line-strong);
   border-radius: var(--radius-md);
@@ -133,8 +152,9 @@
   line-height: 1.75;
 }
 
+/* 窄屏（笔记本 / 分屏）：日志区下限收紧，把高度让给下面的卡片行 */
 @media (width < 960px) {
   .app__main {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(min(14rem, 32vh), 1fr) auto;
   }
 }

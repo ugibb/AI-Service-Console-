@@ -15,6 +15,27 @@ export function createRuntime({ adapter, store, procConfig, logger, now }) {
   /** @type {Map<string, Promise>} 进行中的停止操作，避免重复点击产生并发杀进程 */
   const stopping = new Map();
   const listeners = new Set();
+  /**
+   * @type {Map<string, number[]>} adopted 状态下**验明正身**的全部 pid（壳 + 活着的后代）。
+   *
+   * 为什么不放在对外状态里：状态对象会原样进 /api/services 的响应，多一个字段就是多一处
+   * 需要前端忽略的噪音；而这份数据只服务两个内部用途——停止时「要杀掉哪些 pid」、
+   * 存活轮询时「盯哪些 pid」。
+   *
+   * 为什么不能只有 state.pid：真机实测（2026-09-18）壳会先死而 python 后代还活着，
+   * 那时 state.pid（=代表 pid）或许还在，但**其余成员同样在占端口**，
+   * 只盯一个、只杀一个都会漏。
+   */
+  const adoptPids = new Map();
+
+  /** 全局单调递增的代数号：dispose 清空状态表也不复位。
+   *  代数一旦复用，旧会话残留的迟到回调（如 killTree 触发的 onExit）就能冒充当代
+   *  骗过各处的过期守卫——「模拟控制台重启」的 dispose 复用场景恰好会踩中。 */
+  let generationSeq = 0;
+  const nextGeneration = () => {
+    generationSeq += 1;
+    return generationSeq;
+  };
 
   const stateOf = (id) => states.get(id) ?? blankState();
 
@@ -62,9 +83,18 @@ export function createRuntime({ adapter, store, procConfig, logger, now }) {
     stopping,
     listeners,
     stateOf,
+    nextGeneration,
     patch,
     clearSession,
     appendDiag,
+    /** 记下这次接管认领的全部 pid（必须在 patch(ADOPTED) **之前**调用，监听器要靠它起轮询） */
+    setAdoptPids(id, pids) {
+      const unique = [...new Set(pids.filter((pid) => Number.isInteger(pid) && pid > 0))];
+      if (unique.length > 0) adoptPids.set(id, unique);
+      else adoptPids.delete(id);
+    },
+    adoptPidsOf: (id) => adoptPids.get(id) ?? [],
+    clearAdoptPids: (id) => adoptPids.delete(id),
   };
 }
 

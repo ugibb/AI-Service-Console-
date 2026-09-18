@@ -4,7 +4,7 @@
  * 两条特殊约束：
  * 1. 路径不能含 cmd 元字符：" & | < > ^ —— 因为 startScript 最终经 cmd.exe 执行，
  *    含这些字符的路径会被 cmd 解析为控制符（不是安全问题，自用场景，但会导致启动失败且难排查）。
- * 2. port 仅记录展示（PRD §9 明确不做端口探活），因此可选，允许 null。
+ * 2. port 不用于探活（PRD §9），但启动前清理会按它结束端口占用进程；因此可选，允许 null。
  */
 import { AppError, ERROR_CODES } from './errors.js';
 
@@ -86,7 +86,7 @@ function validatePort(value, errors) {
   if (!Number.isInteger(num) || num < SERVICE_LIMITS.portMin || num > SERVICE_LIMITS.portMax) {
     errors.push({
       field: 'port',
-      message: `端口必须是 ${SERVICE_LIMITS.portMin}~${SERVICE_LIMITS.portMax} 之间的整数（仅记录展示，可留空）`,
+      message: `端口必须是 ${SERVICE_LIMITS.portMin}~${SERVICE_LIMITS.portMax} 之间的整数（选填；填写后用于启动前清理端口占用）`,
     });
     return undefined;
   }

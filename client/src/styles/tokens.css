@@ -2,7 +2,7 @@
  * 设计令牌。
  *
  * 视觉方向：机房里的运维控制台 —— 深色、密度高、等宽字体承载数据，
- * 颜色只承担语义（在跑 / 过渡中 / 要人管 / 不在跑），不做装饰性配色。
+ * 颜色只承担语义（在跑 / 接管 / 过渡中 / 要人管 / 不在跑），不做装饰性配色。
  */
 :root {
   color-scheme: dark;
@@ -26,6 +26,9 @@
   --color-accent-glow: color-mix(in oklch, var(--color-accent) 45%, transparent);
   --color-ok: oklch(76% 0.16 152);
   --color-busy: oklch(82% 0.14 82);
+  /* 已接管：上个控制台会话启动、验明正身后认领的进程——在跑，但出处不同，
+     用紫罗兰与「运行中」的绿区分开（用户要知道这不是本会话起的） */
+  --color-adopted: oklch(72% 0.13 290);
   --color-danger: oklch(68% 0.19 25);
   --color-idle: oklch(66% 0.02 255);
 

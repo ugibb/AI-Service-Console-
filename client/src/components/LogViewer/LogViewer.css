@@ -1,10 +1,15 @@
 .log-viewer {
   display: grid;
-  grid-template-rows: auto auto auto 1fr auto;
-  gap: var(--space-3);
+  /* 5 条轨道对应「头部 / 告警 / 正文 / 工具栏 / 页脚」，但 alert 与 foot 是条件渲染的：
+     靠位置自动摆放时，正文会掉进某条 auto 轨道上被内容撑到上万像素（整屏只剩日志、
+     卡片被顶出首屏），而 1fr 那条空着。所以下面给每个部分显式指定 grid-row，
+     正文那行永远拿到弹性高度，跟渲染了几个可选块无关。 */
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+  gap: var(--space-1);
   min-height: 0;
   height: 100%;
-  padding: var(--space-4);
+  /* 面板内边距收到 4px：正文自己带边框和底色，外圈留白只是白占高度 */
+  padding: var(--space-1);
   border: 1px solid var(--color-line);
   border-radius: var(--radius-md);
   background: var(--color-surface-1);
@@ -12,17 +17,26 @@
 }
 
 .log-viewer__head {
+  grid-row: 1;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--space-4);
 }
 
+/* 服务名与日志路径并成一行。原来名字在上、路径在下，占两行——头部每省一行都是
+   给日志正文的（看日志是这台控制台的主任务）。名字 flex:none 不参与压缩，路径吃掉
+   剩余宽度、过长时自己省略号截断；反过来会让路径把名字挤变形，而「我在看谁」是
+   第一信息，不该先让步。 */
 .log-viewer__ident {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
   min-width: 0;
   flex: 1 1 auto;
 }
 
 .log-viewer__title {
+  flex: none;
   margin: 0;
   font-size: var(--text-xl);
   font-weight: 650;
@@ -31,7 +45,8 @@
 }
 
 .log-viewer__path {
-  margin: 2px 0 0;
+  margin: 0;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -46,10 +61,12 @@
   margin: 0;
 }
 
+/* 标签与值同行（原来是 grid 上下两行，每组统计占两行高）。
+   baseline 对齐：标签 12px、值 14px，按基线齐平才不显得歪。 */
 .log-viewer__stats div {
-  display: grid;
-  gap: 2px;
-  justify-items: end;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
 }
 
 .log-viewer__stats dt {
@@ -66,21 +83,28 @@
   color: var(--color-text-strong);
 }
 
+/* 工具栏排在正文**下方**：过滤是拿到日志之后的动作，控件贴着它作用的正文更顺，
+   头部到正文之间也就只剩告警这一层，日志区能更早开始。 */
 .log-viewer__toolbar {
+  grid-row: 4;
   display: flex;
-  flex-wrap: wrap;
+  /* 始终一行：原来 flex-wrap:wrap 在窗口偏窄时会把「命中数」「自动滚动」甩到第二行，
+     工具栏一高一矮，上面的正文区跟着跳。宽度变化全部由搜索框吸收（它可伸可缩），
+     其余几项都是 nowrap 的短标签，不参与折行。 */
+  flex-wrap: nowrap;
   align-items: center;
   gap: var(--space-3);
-  padding-bottom: var(--space-3);
-  border-bottom: 1px solid var(--color-line);
+  padding-top: var(--space-1);
+  border-top: 1px solid var(--color-line);
 }
 
 .log-viewer__search {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  flex: 1 1 22ch;
-  min-width: 16ch;
+  /* min-width 必须是 0：留 16ch 的话窄窗口下搜索框不肯再缩，溢出就转嫁成工具栏横向撑破 */
+  flex: 1 1 16ch;
+  min-width: 0;
 }
 
 .log-viewer__search-label {
@@ -117,6 +141,7 @@
 }
 
 .log-viewer__alert {
+  grid-row: 2;
   margin: 0;
   padding: var(--space-3);
   border-left: 2px solid var(--color-danger);
@@ -127,6 +152,7 @@
 }
 
 .log-viewer__placeholder {
+  grid-row: 3;
   margin: 0;
   align-self: start;
   padding: var(--space-6) var(--space-4);
@@ -139,21 +165,30 @@
 }
 
 .log-viewer__body-wrap {
+  grid-row: 3;
   position: relative;
-  display: block;
+  /* 这里也必须是 grid：外层给的是「确定高度」，若用 display:block，里面的
+     .log-viewer__body 高度仍是 auto（= 内容全高），照样溢出而不是自己滚。 */
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
   min-width: 0;
+  min-height: 0;
 }
 
 .log-viewer__body {
-  min-height: 12rem;
+  /* 高度由外层 grid 行给（minmax(0,1fr)），这里不能再设 min-height：
+     它与外部行高打架时只会溢出，不会滚动。下限由 .app__main 那行的 20rem 保证。 */
+  min-height: 0;
   overflow: auto;
-  padding: var(--space-2) var(--space-3);
+  /* 内边距与行距都按「一屏塞进更多行」调：日志行本来就是等宽单行，
+     1.45 的行距中文照旧不糊，却比 1.65 多出约 12% 的行数。 */
+  padding: var(--space-1) var(--space-2);
   border: 1px solid var(--color-line);
   border-radius: var(--radius-sm);
   background: var(--color-surface-sunken);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  line-height: 1.65;
+  line-height: 1.45;
 }
 
 .log-viewer__body:focus-visible {
@@ -217,6 +252,7 @@
 }
 
 .log-viewer__foot {
+  grid-row: 5;
   margin: 0;
   font-size: var(--text-xs);
   color: var(--color-text-faint);

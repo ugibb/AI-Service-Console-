@@ -1,0 +1,17 @@
+{
+  "name": "@lsc/desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "桌面版外壳（Electron）：单机一体化，内嵌后端 + React 界面，产出单 exe",
+  "type": "module",
+  "main": "main.js",
+  "scripts": {
+    "bundle": "node scripts/build-bundle.mjs",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "electron": "^44.4.1",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.2"
+  }
+}

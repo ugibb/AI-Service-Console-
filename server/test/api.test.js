@@ -10,9 +10,11 @@ import path from 'node:path';
 import iconv from 'iconv-lite';
 import { loadConfig } from '../src/config.js';
 import { createConfigStore } from '../src/db/configStore.js';
+import { createRuntimeStore } from '../src/db/runtimeStore.js';
 import { createProcManager } from '../src/services/procManager.js';
 import { createApp } from '../src/app.js';
 import { createFakeAdapter } from '../testkit/fakeAdapter.js';
+import { waitForArchive } from '../testkit/harness.js';
 import { createSilentLogger } from '../testkit/harness.js';
 import { cleanupTempDirs, makeTempDir } from '../testkit/tmp.js';
 
@@ -26,7 +28,7 @@ const TEST_PROC = {
   diagBufferLines: 20,
 };
 
-async function makeApi({ serveClient = false, clientDistDir } = {}) {
+async function makeApi({ serveClient = false, clientDistDir, adopt = false } = {}) {
   const dir = await makeTempDir();
   const workDir = path.join(dir, 'svc');
   await fs.mkdir(workDir, { recursive: true });
@@ -49,7 +51,13 @@ async function makeApi({ serveClient = false, clientDistDir } = {}) {
   await store.init();
 
   const adapter = createFakeAdapter();
-  const procManager = createProcManager({ adapter, store, config: { proc: TEST_PROC }, logger });
+  // adopt=true 时接上接管档案（与 index.js 的装配一致），让「已接管」能经由 HTTP 序列化出去
+  let runtimeStore = null;
+  if (adopt) {
+    runtimeStore = createRuntimeStore({ filePath: config.runtimeFile, corruptBackupDir: config.corruptBackupDir, logger });
+    await runtimeStore.init();
+  }
+  const procManager = createProcManager({ adapter, store, config: { proc: TEST_PROC }, runtimeStore, logger });
   const app = createApp({ store, procManager, config, logger });
 
   const server = app.listen(0, '127.0.0.1');
@@ -65,6 +73,7 @@ async function makeApi({ serveClient = false, clientDistDir } = {}) {
     config,
     store,
     adapter,
+    runtimeStore,
     procManager,
     app,
     close: () => new Promise((resolve) => server.close(resolve)),
@@ -299,16 +308,19 @@ test('POST start / stop / restart：返回动作结果与最新服务状态', as
     assert.equal(started.body.data.service.status, 'running');
     assert.equal(started.body.data.service.pid, 4000);
 
-    const conflict = await call(api.base, `/api/services/${id}/start`, { method: 'POST' });
-    assert.equal(conflict.status, 409);
-    assert.equal(conflict.body.error.code, 'SERVICE_BUSY');
+    // running 下再点「启动」不再是 409：语义是「确保只有一个实例」= 先停旧再起新
+    const restartedByStart = await call(api.base, `/api/services/${id}/start`, { method: 'POST' });
+    assert.equal(restartedByStart.status, 200);
+    assert.equal(restartedByStart.body.data.service.status, 'running');
+    assert.equal(restartedByStart.body.data.service.pid, 4001, '杀旧起新');
+    assert.equal(api.adapter.isLive(4000), false, '旧进程已被杀掉');
 
     const list = await call(api.base, '/api/services');
     assert.equal(list.body.data.services[0].status, 'running', '列表应反映运行时状态');
 
     const restarted = await call(api.base, `/api/services/${id}/restart`, { method: 'POST' });
     assert.equal(restarted.body.data.service.status, 'running');
-    assert.equal(restarted.body.data.service.pid, 4001);
+    assert.equal(restarted.body.data.service.pid, 4002);
 
     const stopped = await call(api.base, `/api/services/${id}/stop`, { method: 'POST' });
     assert.equal(stopped.body.data.action.name, 'stop');
@@ -401,6 +413,39 @@ test('运行中的服务禁止编辑与删除（否则会丢 PID、留下无法�
   }
 });
 
+test('控制台重启后「已接管」经 HTTP 透出：状态、PID 与说明都在列表里（真接管取代旧的免责声明）', async () => {
+  const api = await makeApi({ adopt: true });
+  try {
+    const id = (await call(api.base, '/api/services', { method: 'POST', body: sampleService(api.workDir, api.scriptPath, api.logFile) }))
+      .body.data.id;
+    const started = (await call(api.base, `/api/services/${id}/start`, { method: 'POST' })).body.data.service;
+    assert.equal(started.status, 'running');
+    assert.ok(started.pid, '启动后 pid 可见');
+
+    // 模拟控制台被杀（状态清零、进程还活着、档案已落盘），再对账——即控制台重启那一步
+    await waitForArchive(api.runtimeStore, id); // persistPid 是 fire-and-forget，固定 sleep 会抢跑
+    api.procManager.dispose();
+    await api.procManager.reconcileAdopted();
+
+    const list = (await call(api.base, '/api/services')).body.data.services;
+    const item = list.find((service) => service.id === id);
+    assert.equal(item.status, 'adopted');
+    assert.equal(item.pid, started.pid, '接管后 PID 必须可见——否则用户没法核对，又回到「去任务管理器对」那条断头路');
+    assert.match(item.statusMessage, /已接管/);
+
+    // 接管态与 running 同权：编辑/删除被拒（否则会丢 PID、留下无法管理的孤儿进程）
+    const del = await call(api.base, `/api/services/${id}`, { method: 'DELETE' });
+    assert.equal(del.status, 409);
+
+    // 且「停止」真的能停掉接管的进程（两段式树杀对非子进程同样成立）
+    const stopped = (await call(api.base, `/api/services/${id}/stop`, { method: 'POST' })).body.data.service;
+    assert.equal(stopped.status, 'stopped');
+    assert.equal(api.adapter.isLive(started.pid), false);
+  } finally {
+    await api.close();
+  }
+});
+
 test('GET logs：返回尾部 N 行 + 编码 + hasMore', async () => {
   const api = await makeApi();
   try {
@@ -425,6 +470,74 @@ test('GET logs：返回尾部 N 行 + 编码 + hasMore', async () => {
     const gbk = await call(api.base, `/api/services/${id}/logs`);
     assert.equal(gbk.body.data.encoding, 'gbk');
     assert.deepEqual(gbk.body.data.lines, ['服务启动失败']);
+  } finally {
+    await api.close();
+  }
+});
+
+test('GET logs：logFile 里的 {date} 按当天展开，读到的是当天那个文件', async () => {
+  const api = await makeApi();
+  try {
+    // 期望值在测试里独立算一遍（不用被测的 formatDateToken），否则函数算错也照样通过
+    const now = new Date();
+    const pad = (value) => String(value).padStart(2, '0');
+    const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+
+    const template = path.join(api.workDir, '{date}.log');
+    const id = (await call(api.base, '/api/services', { method: 'POST', body: sampleService(api.workDir, api.scriptPath, template) })).body
+      .data.id;
+
+    // 昨天那份必须读不到：只存在今天这个文件时，能读到就说明确实展开成了今天
+    await fs.writeFile(path.join(api.workDir, `${today}.log`), '今天的日志\n');
+
+    const { status, body } = await call(api.base, `/api/services/${id}/logs`);
+    assert.equal(status, 200);
+    assert.equal(body.data.available, true);
+    assert.deepEqual(body.data.lines, ['今天的日志']);
+    assert.equal(body.data.path, path.join(api.workDir, `${today}.log`), '响应里的 path 是展开后的具体文件');
+  } finally {
+    await api.close();
+  }
+});
+
+test('GET logs：当天文件没生成 → 回退到最近一天（跨夜常驻的进程不必等重启）', async () => {
+  const api = await makeApi();
+  try {
+    const now = new Date();
+    const pad = (value) => String(value).padStart(2, '0');
+    const stamp = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 12, 0, 0);
+
+    const template = path.join(api.workDir, '{date}.log');
+    const id = (await call(api.base, '/api/services', { method: 'POST', body: sampleService(api.workDir, api.scriptPath, template) })).body
+      .data.id;
+
+    // 只写昨天那份：worker 昨天启动、今天还在写它 —— 2026-09-18 的 inFlow 就是这个状态
+    const yesterdayPath = path.join(api.workDir, `${stamp(yesterday)}.log`);
+    await fs.writeFile(yesterdayPath, '昨晚启动，今天还在写\n');
+
+    const { status, body } = await call(api.base, `/api/services/${id}/logs`);
+    assert.equal(status, 200);
+    assert.equal(body.data.available, true, '当天文件不存在也要能读到日志，而不是「尚未生成」');
+    assert.deepEqual(body.data.lines, ['昨晚启动，今天还在写']);
+    assert.equal(body.data.path, yesterdayPath, '响应里的 path 是真正读到的那个文件');
+  } finally {
+    await api.close();
+  }
+});
+
+test('GET logs：整个回退窗口内都没有文件 → 200 + available:false（不报错）', async () => {
+  const api = await makeApi();
+  try {
+    const template = path.join(api.workDir, 'logs', '{date}.log');
+    const id = (await call(api.base, '/api/services', { method: 'POST', body: sampleService(api.workDir, api.scriptPath, template) })).body
+      .data.id;
+
+    const { status, body } = await call(api.base, `/api/services/${id}/logs`);
+    assert.equal(status, 200);
+    assert.equal(body.data.available, false);
+    assert.equal(body.data.kind, 'missing');
+    assert.match(body.data.path, /logs[\\/]\d{4}-\d{2}-\d{2}\.log$/, '降级信息里带的是当天该有的那个路径，便于排查');
   } finally {
     await api.close();
   }

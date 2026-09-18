@@ -127,6 +127,13 @@ test('tailFile：无读取权限 → 明确提示', async (t) => {
     t.skip('以 root 运行，chmod 无法真正限制读取');
     return;
   }
+  // Windows 上 chmod 只切「只读」属性，不构成读拒绝：chmod 0o000 后模式变成 444，
+  // 文件照样能读。用 chmod 造不出 EACCES，本用例在 Windows 上无法成立（PRD §12 的权限降级
+  // 分支在 Windows 需要 ACL/占用来构造，属 M2）。
+  if (process.platform === 'win32') {
+    t.skip('Windows 的 chmod 不构成读拒绝，需用 ACL 才能构造 EACCES');
+    return;
+  }
   const { file } = await makeLog('secret\n');
   await fs.chmod(file, 0o000);
   try {

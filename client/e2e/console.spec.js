@@ -46,8 +46,8 @@ test('关键流程：登记 → 启动 → 运行中 → 日志 1s 刷新 → �
   await expect(card.locator('.status-badge')).toHaveAttribute('data-status', 'running', { timeout: 8000 });
   await expect(card.getByText(/运行中/)).toBeVisible();
 
-  // 看日志：文件还没生成时应给出降级引导，而不是报错
-  await card.getByRole('button', { name: '看日志' }).click();
+  // 看日志：整卡即入口（没有单独的「看日志」按钮）；文件还没生成时应给出降级引导，而不是报错
+  await card.locator('.service-card__path').click();
   const viewer = page.getByRole('region', { name: '订单服务 的日志' });
   await expect(viewer.getByText('日志文件尚未生成（服务可能未启动，或尚未产生输出）')).toBeVisible();
 

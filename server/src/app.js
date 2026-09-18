@@ -14,14 +14,21 @@ import { createServicesRouter } from './routes/services.js';
 import { createActionsRouter } from './routes/actions.js';
 import { createLogsRouter } from './routes/logs.js';
 
-const FALLBACK_HTML = `<!doctype html>
+/**
+ * 兜底页：仅在 `serveClient` 为真（即生产档）且构建产物缺失时显示。
+ *
+ * 刻意**不写任何具体端口**。此前这里写着「前端 5173，API 代理到 3010」，而这一页只在生产档
+ * 可达、那两个端口只属于开发档——它给出的是一句错位且会随档案漂移的指引。
+ * 开发模式怎么起由 `npm run dev` 的输出自己交代。
+ */
+const fallbackHtml = `<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><title>本地服务控制台</title>
 <style>body{font-family:ui-monospace,Consolas,monospace;background:#12151b;color:#d7dde8;padding:2.5rem;line-height:1.7}
 code{background:#1d222c;padding:.15rem .4rem;border-radius:4px;color:#7fd1c8}h1{font-size:1.2rem}</style></head>
 <body><h1>后端已就绪，但未找到前端构建产物</h1>
 <p>请先构建前端，再刷新本页：</p>
 <p><code>npm run build</code></p>
-<p>或开发模式（前端 5173，API 代理到 3010）：<code>npm run dev</code></p>
+<p>或改用开发模式（带热更新，界面由 Vite dev server 提供）：<code>npm run dev</code></p>
 <p>API 健康检查：<code>/api/health</code></p>
 </body></html>`;
 
@@ -103,7 +110,7 @@ function mountClient(app, { config, logger }) {
 
   if (!fs.existsSync(indexHtml)) {
     logger.warn?.(`未找到前端构建产物（${indexHtml}），当前仅提供 API。执行 npm run build 后重启即可。`);
-    app.get('/', (req, res) => res.status(200).type('html').send(FALLBACK_HTML));
+    app.get('/', (req, res) => res.status(200).type('html').send(fallbackHtml));
     return;
   }
 

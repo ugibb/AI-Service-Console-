@@ -35,7 +35,7 @@ const filterLines = (lines, keyword) => {
  * 「自动滚动」只控制**视口**，不控制轮询：关掉它日志照样每秒拉取、内容照样更新，
  * 只是不再把滚动条拽到底部——否则用户往回翻查历史时会被一直甩回末尾。
  */
-export function LogViewer({ service, api, intervalMs = 1000, tail = DEFAULT_TAIL, onClose }) {
+export function LogViewer({ service, api, intervalMs = 1000, tail = DEFAULT_TAIL }) {
   const [keyword, setKeyword] = useState('');
   const [autoScroll, setAutoScroll] = useState(true);
   const [pauseBaseline, setPauseBaseline] = useState(0);
@@ -83,6 +83,10 @@ export function LogViewer({ service, api, intervalMs = 1000, tail = DEFAULT_TAIL
           </p>
         </div>
 
+        {/* 标签与值分开写（dt/dd），而不是压成一个 dt 的「编码：UTF-8」：
+            两者样式不同——标签是浅灰小字，值是等宽高对比。挤进同一个元素就只能共用
+            一套样式，值会被标签的浅灰小字拖成背景噪声，多行之间也失去等宽对齐。
+            一行由 CSS 的 flex 保证（.log-viewer__stats div）。 */}
         <dl className="log-viewer__stats">
           <div>
             <dt>编码</dt>
@@ -101,39 +105,7 @@ export function LogViewer({ service, api, intervalMs = 1000, tail = DEFAULT_TAIL
             <dd>{formatClock(lastUpdatedAt)}</dd>
           </div>
         </dl>
-
-        {onClose ? (
-          <button type="button" className="btn btn--quiet" aria-label="关闭日志" onClick={onClose}>
-            关闭
-          </button>
-        ) : null}
       </header>
-
-      <div className="log-viewer__toolbar">
-        <label className="log-viewer__search">
-          <span className="log-viewer__search-label">关键字过滤</span>
-          <input
-            type="search"
-            className="field__input"
-            value={keyword}
-            placeholder="例如 ERROR / 超时 / 端口"
-            onChange={handleKeywordChange}
-          />
-        </label>
-
-        {keyword.trim() ? (
-          <span className="log-viewer__hits">
-            命中 {filtered.length} / {lines.length} 行
-          </span>
-        ) : null}
-
-        <label className="log-viewer__auto-scroll">
-          <input type="checkbox" checked={autoScroll} onChange={(event) => setAutoScrollFrom(event.target.checked)} />
-          自动滚动
-        </label>
-
-        {data?.truncatedLines > 0 ? <span className="log-viewer__truncated">{data.truncatedLines} 行过长已截断</span> : null}
-      </div>
 
       {error ? (
         <p className="log-viewer__alert" role="alert">
@@ -165,6 +137,32 @@ export function LogViewer({ service, api, intervalMs = 1000, tail = DEFAULT_TAIL
           ) : null}
         </div>
       )}
+
+      <div className="log-viewer__toolbar">
+        <label className="log-viewer__search">
+          <span className="log-viewer__search-label">关键字过滤</span>
+          <input
+            type="search"
+            className="field__input"
+            value={keyword}
+            placeholder="例如 ERROR / 超时 / 端口"
+            onChange={handleKeywordChange}
+          />
+        </label>
+
+        {keyword.trim() ? (
+          <span className="log-viewer__hits">
+            命中 {filtered.length} / {lines.length} 行
+          </span>
+        ) : null}
+
+        <label className="log-viewer__auto-scroll">
+          <input type="checkbox" checked={autoScroll} onChange={(event) => setAutoScrollFrom(event.target.checked)} />
+          自动滚动
+        </label>
+
+        {data?.truncatedLines > 0 ? <span className="log-viewer__truncated">{data.truncatedLines} 行过长已截断</span> : null}
+      </div>
 
       {loading ? <p className="log-viewer__foot">正在读取日志…</p> : null}
     </section>

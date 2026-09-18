@@ -17,7 +17,7 @@ test('validateServiceInput：合法输入通过并做 trim', () => {
   assert.equal(result.value.port, 8081);
 });
 
-test('validateServiceInput：port 可省略或留空 → null（仅记录展示）', () => {
+test('validateServiceInput：port 可省略或留空 → null（选填）', () => {
   for (const port of [undefined, null, '']) {
     const result = validateServiceInput({ ...valid, port });
     assert.equal(result.ok, true);

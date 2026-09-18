@@ -171,6 +171,16 @@ test('main：正常启动打印就绪信息，收到 SIGTERM 优雅退出（退�
     assert.equal(response.status, 200);
     assert.equal((await response.json()).data.status, 'ok');
 
+    // Windows 上 process.kill(pid,'SIGTERM') 是**无条件强杀**（等价 TerminateProcess）：
+    // 退出码为 null、信号为 SIGTERM，进程里的 on('SIGTERM') 处理器根本不会执行
+    // （Node 文档明说 SIGTERM 在 Windows 上无法投递）。所以「优雅退出」这段在 Windows 上不可达，
+    // 只能用别的手段验证；这里只验跨平台成立的部分（起来了 + health 正常）。
+    if (process.platform === 'win32') {
+      proc.child.kill('SIGTERM');
+      await proc.exited;
+      return;
+    }
+
     proc.child.kill('SIGTERM');
     const { code } = await proc.exited;
     assert.equal(code, 0, 'SIGTERM 应触发优雅退出');

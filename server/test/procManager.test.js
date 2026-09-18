@@ -35,19 +35,22 @@ test('start：未知服务 id 抛 SERVICE_NOT_FOUND', async () => {
   );
 });
 
-test('start：已在运行/启动中/停止中 → 拒绝并提示（PRD §12「对启动中服务再次点启动」）', async () => {
+test('start：running 时再点启动 = 先停旧进程再起新的（确保只有一个实例在跑）', async () => {
   const h = await makeHarness({ services: [{ name: 'svc' }] });
   const id = h.services[0].id;
-  await h.procManager.start(id);
+  const first = await h.procManager.start(id);
+  assert.equal(first.status, STATE.RUNNING);
+  assert.equal(first.pid, 4000);
 
-  await assert.rejects(
-    () => h.procManager.start(id),
-    (err) => {
-      assert.equal(err.code, 'SERVICE_BUSY');
-      assert.equal(err.status, 409);
-      assert.match(err.message, /正在运行中/);
-      return true;
-    },
+  const second = await h.procManager.start(id);
+  assert.equal(second.status, STATE.RUNNING);
+  assert.equal(second.pid, 4001, '应拉起新进程');
+  assert.equal(h.adapter.isLive(4000), false, '旧进程必须已被杀掉');
+  assert.equal(h.adapter.isLive(4001), true, '新进程在跑');
+  assert.equal(h.adapter.calls.spawn.length, 2);
+  assert.ok(
+    h.adapter.calls.killTree.some((call) => call.pid === 4000),
+    '对旧 pid 执行过树杀',
   );
 });
 
@@ -251,16 +254,35 @@ test('stop：连强杀都杀不掉 → error(kill_failed)，提示去任务管�
   assert.match(result.message, /任务管理器/);
 });
 
-test('stop：taskkill 自身执行失败 → error(kill_failed)，带 taskkill 原始信息', async () => {
+test('stop：优雅终止报错（真机实测的退出码 255「只能强制终止」）→ 降级 /F 强杀，而不是判死', async () => {
+  // 真机现场：`taskkill /PID 10824 /T` → code=255
+  // 「错误: 无法终止 PID 10824 (属于 PID 1552 子进程)的进程。原因: 只能强制终止此进程(带 /F 选项)。」
+  // 旧实现在这里 return failedResult，用户点停止只会拿到红色失败态，而 python 照样在跑。
   const h = await makeHarness({ services: [{ name: 'svc' }] });
   const id = h.services[0].id;
-  h.adapter.setBehavior({ killFailure: { appliesTo: 'graceful', message: 'Access is denied.' } });
+  h.adapter.setBehavior({ killFailure: { appliesTo: 'graceful', message: '只能强制终止此进程(带 /F 选项)。' } });
+  await h.procManager.start(id);
+
+  const result = await h.procManager.stop(id);
+  assert.equal(result.status, STATE.STOPPED, '优雅失败不是终点，强杀成功就是停成了');
+  assert.equal(result.forced, true);
+  assert.match(result.message, /已强制终止/);
+  assert.deepEqual(h.adapter.calls.killTree, [
+    { pid: 4000, force: false },
+    { pid: 4000, force: true },
+  ]);
+});
+
+test('stop：优雅与强杀都报 taskkill 错误 → error(kill_failed)，带 taskkill 原始信息', async () => {
+  const h = await makeHarness({ services: [{ name: 'svc' }] });
+  const id = h.services[0].id;
+  h.adapter.setBehavior({ killFailure: { appliesTo: 'both', message: 'Access is denied.' } });
   await h.procManager.start(id);
 
   const result = await h.procManager.stop(id);
   assert.equal(result.killFailed, true);
   assert.equal(result.status, STATE.ERROR);
-  assert.match(result.message, /停止失败：Access is denied\./);
+  assert.match(result.message, /强制终止失败：Access is denied\./);
 });
 
 test('stop：进程已自行退出时是幂等的（不报错、不调用 taskkill）', async () => {

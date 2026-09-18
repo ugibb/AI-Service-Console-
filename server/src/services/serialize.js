@@ -5,8 +5,8 @@
  */
 import { PROC_STATES } from './procManager.js';
 
-/** 只有这些状态下 PID 才对外展示（避免展示已失效的旧 PID） */
-const PID_VISIBLE_STATES = [PROC_STATES.STARTING, PROC_STATES.RUNNING, PROC_STATES.STOPPING];
+/** 只有这些状态下 PID 才对外展示（避免展示已失效的旧 PID）。adopted 的 pid 是接管验明过的活进程 */
+const PID_VISIBLE_STATES = [PROC_STATES.STARTING, PROC_STATES.RUNNING, PROC_STATES.STOPPING, PROC_STATES.ADOPTED];
 
 /**
  * @param {object} service 持久化配置
